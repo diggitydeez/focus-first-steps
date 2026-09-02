@@ -76,7 +76,7 @@ export function ReviewScreen({
             <Input
               value={engagement.clientName}
               onChange={(e) => set("clientName", e.target.value)}
-              placeholder="Client name"
+              placeholder={engagement.clientName ? "Client name" : "Client name — needs your review"}
             />
           </Field>
 
