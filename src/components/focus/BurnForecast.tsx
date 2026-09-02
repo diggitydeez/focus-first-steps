@@ -45,6 +45,7 @@ export function BurnForecast({ engagement, tracked }: { engagement: Engagement; 
   const rate = included > 0 && fee > 0 ? fee / included : 0;
   const differenceHours = forecastEndHours - included;
   const effortValue = Math.abs(differenceHours) * rate;
+  const periodWord = engagement.period === "month" ? "monthly" : "weekly";
   const money = (n: number) => `${symbol}${Math.round(n).toLocaleString("en-GB")}`;
   const showSummary =
     included > 0 && rate > 0 && (engagement.billingModel === "retainer" || engagement.billingModel === "fixed");
@@ -178,12 +179,12 @@ export function BurnForecast({ engagement, tracked }: { engagement: Engagement; 
           </p>
           <p className="mt-1 text-[13px] text-muted-foreground">
             {differenceHours >= 0
-              ? `${differenceHours.toFixed(1)}h above the ${engagement.period}ly allowance. At the ${
+              ? `${differenceHours.toFixed(1)}h above the ${periodWord} allowance. At the ${
                   engagement.billingModel === "fixed" ? "fee" : "retainer"
                 }’s effective rate of ${money(rate)}/h, this represents approximately ${money(
                   effortValue,
                 )} of additional effort to review.`
-              : `${Math.abs(differenceHours).toFixed(1)}h below the ${engagement.period}ly allowance, leaving approximately ${money(
+              : `${Math.abs(differenceHours).toFixed(1)}h below the ${periodWord} allowance, leaving approximately ${money(
                   effortValue,
                 )} of contracted capacity.`}
           </p>
