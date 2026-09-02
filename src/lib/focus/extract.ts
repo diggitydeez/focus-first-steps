@@ -35,7 +35,9 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const STOP = new Set([
   "the","a","an","my","our","their","his","her","this","that","and","on","in","of","to","up",
   "monthly","weekly","hourly","retainer","fixed","flat","client","clients","project","projects",
+  "includes","include","including","work","working","mostly","most","time","its","split","between",
 ]);
+
 
 function titleCase(s: string) {
   return s
