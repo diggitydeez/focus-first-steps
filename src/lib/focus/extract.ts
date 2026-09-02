@@ -364,3 +364,20 @@ export function plannedBlocks(e: Engagement): PlannedBlock[] {
     return { id: `plan-${day}`, label: `Planned · ${p.name}`, day, start: 11, hours: perDay };
   });
 }
+
+/** Shared timer state so a running timer survives navigation. */
+export type TimerState = {
+  description: string;
+  projectId: string;
+  categoryId: string;
+  billable: boolean;
+  startedAt: number | null;
+};
+
+export const emptyTimer = (projectId: string): TimerState => ({
+  description: "",
+  projectId,
+  categoryId: "",
+  billable: true,
+  startedAt: null,
+});
