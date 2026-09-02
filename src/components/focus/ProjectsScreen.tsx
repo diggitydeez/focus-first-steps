@@ -37,7 +37,7 @@ export function ProjectsScreen({
             onClick={() => setMode("ai")}
             className="border-accent-soft bg-accent-soft text-accent-foreground hover:bg-accent-soft/80"
           >
-            <span aria-hidden>✨</span> Set up with AI
+            <SparkleIcon /> Set up with AI
           </Button>
         </div>
       </header>
@@ -159,7 +159,7 @@ function AddProjectDrawer({
               onClick={suggest}
               className="border-accent-soft bg-accent-soft text-accent-foreground hover:bg-accent-soft/80"
             >
-              <span aria-hidden>✨</span> Suggest from description
+              <SparkleIcon /> Suggest from description
             </Button>
           </>
         )}
@@ -207,5 +207,14 @@ function AddProjectDrawer({
         )}
       </div>
     </Drawer>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 1.5l1.3 3.6 3.6 1.3-3.6 1.3L8 11.3 6.7 7.7 3.1 6.4l3.6-1.3L8 1.5z" fill="currentColor" />
+      <path d="M12.6 10.4l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6z" fill="currentColor" />
+    </svg>
   );
 }
