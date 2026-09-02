@@ -326,3 +326,41 @@ export function periodEnd(e: Engagement): Date {
 }
 
 export const formatDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/** Neutral, editable engagement used when nothing could be extracted (e.g. screenshot import). */
+export function neutralEngagement(): Engagement {
+  return {
+    clientName: "",
+    clientConfirm: true,
+    billingModel: "retainer",
+    billingConfirm: true,
+    amount: "",
+    currency: "EUR",
+    includedHours: "",
+    period: "month",
+    hoursConfirm: true,
+    startDate: new Date().toISOString().slice(0, 10),
+    nonBillableTarget: DEFAULT_NON_BILLABLE_TARGET,
+    projects: [{ ...newRow(""), suggested: true }],
+    categories: [{ ...newRow("Client communication & admin"), billable: "ask", suggested: true }],
+  };
+}
+
+/** Effective billing status for a tracked entry (entry override, else its row). */
+export function entryBillable(e: Engagement, entry: TrackedEntry): Billable {
+  if (entry.billable) return entry.billable;
+  return [...e.projects, ...e.categories].find((r) => r.id === entry.rowId)?.billable ?? "billable";
+}
+
+export type PlannedBlock = { id: string; label: string; day: number; start: number; hours: number };
+
+/** Deterministic planned blocks derived from the engagement, for the calendar view. */
+export function plannedBlocks(e: Engagement): PlannedBlock[] {
+  const projects = e.projects.filter((p) => p.name.trim());
+  if (!projects.length) return [];
+  const perDay = Math.max(1, Math.round((Number(e.includedHours) || 20) / 10));
+  return [0, 1, 2, 3, 4].map((day) => {
+    const p = projects[day % projects.length]!;
+    return { id: `plan-${day}`, label: `Planned · ${p.name}`, day, start: 11, hours: perDay };
+  });
+}
