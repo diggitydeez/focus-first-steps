@@ -142,26 +142,51 @@ function inferHours(text: string) {
   return { hours: Number.isFinite(n) ? String(n) : "", confirm: !Number.isFinite(n) };
 }
 
+/** Introductory fragments that must never become part of a project name. */
+const PROJECT_INTRO =
+  /^(?:and\s+)?(?:most\s+of\s+)?(?:my|our|their|the)?\s*(?:time\s+is\s+)?(?:split\s+between|engagement\s+includes?|work\s+covers?|scope\s+covers?|engagement\s+covers?|includes?|including|covers?|covering|consists\s+of|comprises|between)\s*/i;
+
+const PROJECT_NOISE =
+  /^(?:the\s+)?(?:engagement|work|working|time|scope|retainer|project|projects|client|admin|it|them|this|that|etc)\.?$/i;
+
+function stripIntro(chunk: string) {
+  let s = chunk.trim();
+  for (let i = 0; i < 3; i++) {
+    const next = s.replace(PROJECT_INTRO, "").trim();
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+}
+
 function splitCandidates(chunk: string) {
-  return chunk
-    .split(/\band\b|,|;|\/|\+/i)
+  return stripIntro(chunk)
+    .split(/\s*(?:,|;|\/|\+|\band\b|&)\s*/i)
     .map((s) =>
-      s
-        .replace(/\b(their|the|a|an|my|our|its|this|that|work|working|time|mostly|most of)\b/gi, " ")
+      stripIntro(s)
+        .replace(/^(?:their|the|a|an|my|our|its|this|that)\s+/i, "")
         .replace(/[^A-Za-z0-9&'’\- ]/g, " ")
         .replace(/\s+/g, " ")
         .trim(),
     )
-    .filter((s) => s.length >= 3 && s.split(" ").length <= 5);
+    .filter((s) => s.length >= 3 && s.split(" ").length <= 5 && !PROJECT_NOISE.test(s));
 }
 
 function inferProjects(text: string): WorkRow[] {
-  const markers = [/\bbetween\s+([^.!?]+)/i, /\bincluding\s+([^.!?]+)/i, /\bcovering\s+([^.!?]+)/i, /\bon\s+([^.!?]+)/i];
+  const markers = [
+    /\bsplit\s+between\s+([^.!?]+)/i,
+    /\bengagement\s+includes?\s+([^.!?]+)/i,
+    /\b(?:includes?|including)\s+([^.!?]+)/i,
+    /\b(?:covers?|covering)\s+([^.!?]+)/i,
+    /\bbetween\s+([^.!?]+)/i,
+    /\bon\s+([^.!?]+)/i,
+  ];
+  const reject = /^\d|hours?$|retainer|month|week|invoice|fee|budget/i;
   let found: string[] = [];
   for (const m of markers) {
     const match = text.match(m);
     if (match) {
-      const c = splitCandidates(match[1] ?? "").filter((s) => !/^\d|hours?$|retainer|month|week/i.test(s));
+      const c = splitCandidates(match[1] ?? "").filter((s) => !reject.test(s));
       if (c.length) {
         found = c;
         break;
@@ -169,19 +194,18 @@ function inferProjects(text: string): WorkRow[] {
     }
   }
   if (!found.length) {
-    found = splitCandidates(text.split(/[.!?]/).slice(1).join(", ")).filter(
-      (s) => !/^\d|hours?$|retainer|month|week|invoice/i.test(s),
-    );
+    found = splitCandidates(text.split(/[.!?]/).slice(1).join(", ")).filter((s) => !reject.test(s));
   }
   const unique: string[] = [];
   for (const f of found) {
     const label = titleCase(f);
     if (!unique.some((u) => u.toLowerCase() === label.toLowerCase())) unique.push(label);
-    if (unique.length === 2) break;
+    if (unique.length === 3) break;
   }
   if (!unique.length) unique.push("Project work");
   return unique.map((name) => ({ id: uid(), name, billable: "billable" as Billable, suggested: true }));
 }
+
 
 export function extractEngagement(text: string): Engagement {
   const client = inferClient(text);
