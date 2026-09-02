@@ -1,40 +1,87 @@
 import { useMemo, useState } from "react";
-import { CURRENCY_SYMBOL, type Engagement } from "@/lib/focus/extract";
-import { Button, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
+import {
+  CURRENCY_SYMBOL,
+  seedEntries,
+  type CalendarEvent,
+  type Engagement,
+  type TrackedEntry,
+} from "@/lib/focus/extract";
+import { BurnForecast } from "./BurnForecast";
+import { EventsDrawer } from "./EventsDrawer";
+import { Button, Drawer, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
 
-type Entry = { id: string; description: string; project: string; hours: number };
-
-const INITIAL: Entry[] = [
-  { id: "t1", description: "Homepage layout revisions", project: "Website Redesign", hours: 5.5 },
-  { id: "t2", description: "Component build", project: "Website Redesign", hours: 4 },
-  { id: "t3", description: "Data model review", project: "Analytics Dashboard", hours: 4.3 },
-  { id: "t4", description: "Client check-in and revisions", project: "Client communication & revisions", hours: 4.2 },
-];
-
-export function WeekScreen({ engagement, onRestart }: { engagement: Engagement; onRestart: () => void }) {
-  const [entries, setEntries] = useState<Entry[]>(INITIAL);
-  const [planned, setPlanned] = useState(20);
-  const [showEntries, setShowEntries] = useState(false);
+export function WeekScreen({
+  engagement,
+  weeklyTarget,
+  events,
+  onSaveEvents,
+  onNonBillableTarget,
+  onRestart,
+}: {
+  engagement: Engagement;
+  weeklyTarget: number;
+  events: CalendarEvent[];
+  onSaveEvents: (updated: CalendarEvent[]) => void;
+  onNonBillableTarget: (value: number) => void;
+  onRestart: () => void;
+}) {
+  const [entries, setEntries] = useState<TrackedEntry[]>(() => seedEntries(engagement));
+  const [planned, setPlanned] = useState(() => Number(engagement.includedHours) || 20);
+  const [timeDrawer, setTimeDrawer] = useState(false);
+  const [eventsDrawer, setEventsDrawer] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [targetOpen, setTargetOpen] = useState(false);
+  const [targetDraft, setTargetDraft] = useState(String(engagement.nonBillableTarget));
 
-  const tracked = useMemo(() => entries.reduce((s, e) => s + e.hours, 0), [entries]);
+  const rows = useMemo(() => [...engagement.projects, ...engagement.categories], [engagement]);
+  const rowById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+
+  const eventEntries: TrackedEntry[] = useMemo(
+    () =>
+      events
+        .filter((e) => e.status === "ready")
+        .map((e) => ({
+          id: `ev-${e.id}`,
+          description: e.title,
+          rowId: e.categoryId || e.projectId,
+          hours: e.hours,
+        })),
+    [events],
+  );
+
+  const all = useMemo(() => [...entries, ...eventEntries], [entries, eventEntries]);
+  const tracked = all.reduce((s, e) => s + e.hours, 0);
   const pct = Math.min(100, Math.round((tracked / Math.max(planned, 1)) * 100));
-  const commsHours = entries
-    .filter((e) => /communicat|revision|admin/i.test(e.project))
-    .reduce((s, e) => s + e.hours, 0);
-  const commsPct = tracked ? Math.round((commsHours / tracked) * 100) : 0;
   const overPace = tracked > planned * 0.8;
 
-  const byProject = useMemo(() => {
-    const map = new Map<string, number>();
-    entries.forEach((e) => map.set(e.project, (map.get(e.project) ?? 0) + e.hours));
-    return [...map.entries()];
-  }, [entries]);
+  const nonBillableHours = all.reduce(
+    (s, e) => (rowById.get(e.rowId)?.billable === "billable" ? s : s + e.hours),
+    0,
+  );
+  const nonBillablePct = tracked ? Math.round((nonBillableHours / tracked) * 100) : 0;
+  const overTarget = nonBillablePct > engagement.nonBillableTarget;
 
-  const included = Number(engagement.includedHours) || 30;
-  const fee = Number(engagement.amount) || 2000;
-  const represented = Math.round(Math.min(1, tracked / included) * fee);
+  const byRow = useMemo(
+    () =>
+      rows.map((r) => ({
+        row: r,
+        hours: all.filter((e) => e.rowId === r.id).reduce((s, e) => s + e.hours, 0),
+      })),
+    [rows, all],
+  );
+
+  const delivery = byRow
+    .filter(({ row }) => engagement.projects.some((p) => p.id === row.id))
+    .reduce((s, r) => s + r.hours, 0);
+  const admin = tracked - delivery;
+  const businessAdmin = admin + 3.5; // simulated non-client business time
+  const totalWeek = delivery + businessAdmin;
+
+  const included = Number(engagement.includedHours) || 0;
+  const fee = Number(engagement.amount) || 0;
+  const represented = included ? Math.round(Math.min(1, tracked / included) * fee) : 0;
+  const pendingEvents = events.filter((e) => e.status === "uncategorized").length;
 
   return (
     <div className="mx-auto max-w-[980px] px-6 py-8 md:px-10">
@@ -42,7 +89,7 @@ export function WeekScreen({ engagement, onRestart }: { engagement: Engagement; 
         <div>
           <h1 className="text-[26px] font-semibold tracking-tight text-foreground">This week</h1>
           <p className="mt-0.5 text-[13.5px] text-muted-foreground">
-            <span className="text-teal">{engagement.clientName}</span> · Sep 7–11
+            <span className="text-teal">{engagement.clientName}</span> · Friday preview of week one
           </p>
         </div>
         <button
@@ -65,38 +112,32 @@ export function WeekScreen({ engagement, onRestart }: { engagement: Engagement; 
         <p className="mt-2 text-[14px] text-foreground">
           {tracked.toFixed(1)} of {planned} planned hours used
         </p>
-        <div className="mt-2 h-2 w-full rounded-full bg-secondary" role="img" aria-label={`${pct}% of planned hours used`}>
-          <div
-            className={`h-2 rounded-full ${overPace ? "bg-primary" : "bg-teal"}`}
-            style={{ width: `${pct}%` }}
-          />
+        <div
+          className="mt-2 h-2 w-full rounded-full bg-secondary"
+          role="img"
+          aria-label={`${pct}% of planned hours used`}
+        >
+          <div className={`h-2 rounded-full ${overPace ? "bg-primary" : "bg-teal"}`} style={{ width: `${pct}%` }} />
         </div>
-        <p className="mt-2.5 text-[13.5px] text-muted-foreground">
-          At this pace, you’ll reach the monthly allowance about 6 days early. This is an early commercial signal to
-          check, not a judgement about your contract.
-        </p>
 
         <div className="mt-4 border-t border-border pt-3">
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Breakdown</p>
           <ul className="space-y-1.5">
-            {byProject.map(([name, hours]) => (
-              <li key={name} className="flex items-center justify-between text-[13.5px]">
+            {byRow.map(({ row, hours }) => (
+              <li key={row.id} className="flex items-center justify-between text-[13.5px]">
                 <span className="flex items-center gap-2 text-foreground">
                   <span className="h-2 w-2 rounded-full bg-teal" aria-hidden />
-                  {name}
+                  {row.name || "Untitled"}
                 </span>
                 <span className="tabular-nums text-muted-foreground">{hours.toFixed(1)}h</span>
               </li>
             ))}
           </ul>
-          <p className="mt-3 rounded-[8px] bg-secondary px-3 py-2 text-[13px] text-foreground">
-            {commsPct}% of this engagement was spent on communication and revisions.
-          </p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setShowEntries((v) => !v)}>
-            {showEntries ? "Hide entries" : "Review time"}
+          <Button size="sm" onClick={() => setTimeDrawer(true)}>
+            Review time
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             Add missed time
@@ -105,70 +146,169 @@ export function WeekScreen({ engagement, onRestart }: { engagement: Engagement; 
             Adjust next week
           </Button>
         </div>
+      </section>
 
-        {showEntries && (
-          <div className="mt-4 divide-y divide-border rounded-[10px] border border-border">
-            {entries.map((e) => (
-              <div key={e.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                <input
-                  aria-label="Entry description"
-                  value={e.description}
-                  onChange={(ev) =>
-                    setEntries((list) =>
-                      list.map((x) => (x.id === e.id ? { ...x, description: ev.target.value } : x)),
-                    )
-                  }
-                  className="min-w-[160px] flex-1 bg-transparent text-[13.5px] focus:outline-none"
-                />
-                <span className="text-[12.5px] text-muted-foreground">{e.project}</span>
-                <input
-                  aria-label="Hours"
-                  inputMode="decimal"
-                  value={e.hours}
-                  onChange={(ev) =>
-                    setEntries((list) =>
-                      list.map((x) =>
-                        x.id === e.id ? { ...x, hours: Number(ev.target.value.replace(/[^\d.]/g, "")) || 0 } : x,
-                      ),
-                    )
-                  }
-                  className="w-16 rounded-[8px] border border-border px-2 py-1 text-right text-[13px] tabular-nums focus:border-primary focus:outline-none"
-                />
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setEntries((list) => list.filter((x) => x.id !== e.id))}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
-            {entries.length === 0 && <p className="px-3 py-4 text-[13px] text-muted-foreground">No entries yet.</p>}
-          </div>
-        )}
+      <div className="mt-4">
+        <BurnForecast engagement={engagement} tracked={tracked} />
+      </div>
+
+      <section
+        className={`mt-4 rounded-[12px] border px-5 py-4 ${overTarget ? "border-warning/40 bg-warning-soft/40" : "border-border"}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h2 className="text-[15.5px] font-semibold text-foreground">
+            {overTarget ? "Non-billable time is above your target" : "Non-billable time is within your target"}
+          </h2>
+          <Tag tone={overTarget ? "warning" : "teal"}>{nonBillablePct}%</Tag>
+        </div>
+        <p className="mt-1.5 text-[14px] text-foreground">
+          {nonBillableHours.toFixed(1)}h · {nonBillablePct}% of tracked time
+        </p>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">
+          Your target is {engagement.nonBillableTarget}%.{" "}
+          {overTarget
+            ? "Client communication and revisions account for most of the difference."
+            : "Communication and revisions are inside the share you planned for."}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setTimeDrawer(true)}>
+            Review entries
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setTargetDraft(String(engagement.nonBillableTarget));
+              setTargetOpen(true);
+            }}
+          >
+            Adjust target
+          </Button>
+        </div>
       </section>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="flex items-center justify-between rounded-[12px] border border-border px-4 py-3">
-          <p className="text-[13.5px] text-foreground">2 uncategorized events</p>
-          <Button size="sm" onClick={() => setShowEntries(true)}>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-border px-4 py-3">
+          <p className="text-[13.5px] text-foreground">
+            {pendingEvents} uncategorized {pendingEvents === 1 ? "event" : "events"}
+          </p>
+          <Button size="sm" onClick={() => setEventsDrawer(true)}>
             Review
           </Button>
         </div>
         <div className="rounded-[12px] border border-border px-4 py-3">
-          <p className="flex items-center gap-1.5 text-[13.5px] text-foreground">
+          <p className="flex flex-wrap items-center gap-1.5 text-[13.5px] text-foreground">
             {CURRENCY_SYMBOL[engagement.currency]}
             {represented.toLocaleString()} of {CURRENCY_SYMBOL[engagement.currency]}
-            {fee.toLocaleString()} retainer represented by tracked time
+            {fee.toLocaleString()} represented by tracked time
             <Tooltip text="Directional means an estimate based on tracked time only. It is not an invoice and does not confirm what you can bill." />
           </p>
           <p className="mt-1 text-[12px] text-muted-foreground">Directional, not an invoice</p>
         </div>
       </div>
 
+      <section className="mt-4 rounded-[10px] border border-border bg-secondary/60 px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-[13.5px] font-semibold text-foreground">Your total week</h3>
+          <span className="text-[12.5px] text-muted-foreground">
+            {totalWeek.toFixed(1)}h of {weeklyTarget}h weekly working target
+          </span>
+        </div>
+        <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-background">
+          <div
+            className="h-1.5 bg-teal"
+            style={{ width: `${Math.min(100, (delivery / Math.max(weeklyTarget, 1)) * 100)}%` }}
+          />
+          <div
+            className="h-1.5 bg-primary/50"
+            style={{ width: `${Math.min(100, (businessAdmin / Math.max(weeklyTarget, 1)) * 100)}%` }}
+          />
+        </div>
+        <p className="mt-2 text-[12.5px] text-muted-foreground">
+          Client delivery {delivery.toFixed(1)}h · business administration and communication{" "}
+          {businessAdmin.toFixed(1)}h. Friday preview based on simulated week-one activity.
+        </p>
+      </section>
+
+      {/* Review time drawer: categorized tracked entries */}
+      <Drawer
+        open={timeDrawer}
+        onClose={() => setTimeDrawer(false)}
+        title="Tracked time this week"
+        description={`${all.length} categorized entries · ${tracked.toFixed(1)}h`}
+        footer={
+          <div className="flex justify-end">
+            <Button size="sm" variant="primary" onClick={() => setTimeDrawer(false)}>
+              Done
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-2">
+          {all.map((e) => {
+            const row = rowById.get(e.rowId);
+            const editable = entries.some((x) => x.id === e.id);
+            return (
+              <div key={e.id} className="rounded-[10px] border border-border px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    aria-label="Entry description"
+                    value={e.description}
+                    readOnly={!editable}
+                    onChange={(ev) =>
+                      setEntries((list) =>
+                        list.map((x) => (x.id === e.id ? { ...x, description: ev.target.value } : x)),
+                      )
+                    }
+                    className="min-w-[150px] flex-1 bg-transparent text-[13.5px] text-foreground focus:outline-none"
+                  />
+                  <input
+                    aria-label="Hours"
+                    inputMode="decimal"
+                    value={e.hours}
+                    readOnly={!editable}
+                    onChange={(ev) =>
+                      setEntries((list) =>
+                        list.map((x) =>
+                          x.id === e.id
+                            ? { ...x, hours: Number(ev.target.value.replace(/[^\d.]/g, "")) || 0 }
+                            : x,
+                        ),
+                      )
+                    }
+                    className="w-16 rounded-[8px] border border-border px-2 py-1 text-right text-[13px] tabular-nums focus:border-primary focus:outline-none"
+                  />
+                  {editable && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setEntries((list) => list.filter((x) => x.id !== e.id))}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal" aria-hidden />
+                  {row?.name ?? "Unassigned"} · {row?.billable === "billable" ? "Billable" : "Non-billable"}
+                </p>
+              </div>
+            );
+          })}
+          {all.length === 0 && <p className="text-[13px] text-muted-foreground">No entries yet.</p>}
+        </div>
+      </Drawer>
+
+      <EventsDrawer
+        open={eventsDrawer}
+        onClose={() => setEventsDrawer(false)}
+        engagement={engagement}
+        events={events}
+        onSave={onSaveEvents}
+      />
+
       <AddMissedTime
         open={addOpen}
-        projects={[...engagement.projects.map((p) => p.name), ...engagement.categories.map((c) => c.name)]}
+        rows={rows.map((r) => ({ id: r.id, name: r.name || "Untitled" }))}
         onClose={() => setAddOpen(false)}
         onAdd={(entry) => {
           setEntries((list) => [...list, { ...entry, id: Math.random().toString(36).slice(2, 8) }]);
@@ -198,23 +338,50 @@ export function WeekScreen({ engagement, onRestart }: { engagement: Engagement; 
           </Button>
         </div>
       </Modal>
+
+      <Modal
+        open={targetOpen}
+        onClose={() => setTargetOpen(false)}
+        title="Adjust non-billable target"
+        description="The share of tracked engagement time you aim to keep outside billable delivery."
+      >
+        <Field label="Non-billable target (%)">
+          <Input
+            inputMode="decimal"
+            value={targetDraft}
+            onChange={(e) => setTargetDraft(e.target.value.replace(/[^\d.]/g, ""))}
+          />
+        </Field>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={() => setTargetOpen(false)}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              onNonBillableTarget(Number(targetDraft) || 0);
+              setTargetOpen(false);
+            }}
+          >
+            Save target
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
 
 function AddMissedTime({
   open,
-  projects,
+  rows,
   onClose,
   onAdd,
 }: {
   open: boolean;
-  projects: string[];
+  rows: { id: string; name: string }[];
   onClose: () => void;
-  onAdd: (e: Omit<Entry, "id">) => void;
+  onAdd: (e: Omit<TrackedEntry, "id">) => void;
 }) {
   const [description, setDescription] = useState("");
-  const [project, setProject] = useState(projects[0] ?? "");
+  const [rowId, setRowId] = useState(rows[0]?.id ?? "");
   const [hours, setHours] = useState("1");
   const [error, setError] = useState<string | null>(null);
 
@@ -225,10 +392,10 @@ function AddMissedTime({
           <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Design review" />
         </Field>
         <Field label="Project or category">
-          <Select value={project} onChange={(e) => setProject(e.target.value)}>
-            {projects.map((p) => (
-              <option key={p} value={p}>
-                {p}
+          <Select value={rowId} onChange={(e) => setRowId(e.target.value)}>
+            {rows.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
               </option>
             ))}
           </Select>
@@ -250,7 +417,7 @@ function AddMissedTime({
               const h = Number(hours);
               if (!h) return setError("Add the number of hours.");
               setError(null);
-              onAdd({ description: description.trim(), project, hours: h });
+              onAdd({ description: description.trim(), rowId: rowId || rows[0]?.id || "", hours: h });
               setDescription("");
               setHours("1");
             }}

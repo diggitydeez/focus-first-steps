@@ -252,3 +252,64 @@ export function StepIndicator({ step, total }: { step: number; total: number }) 
     </div>
   );
 }
+
+export function Drawer({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  width = "max-w-[440px]",
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string | undefined;
+  children: ReactNode;
+  footer?: ReactNode | undefined;
+  width?: string | undefined;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    ref.current?.querySelector<HTMLElement>("input, select, textarea, button")?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-foreground/20" onClick={onClose} aria-hidden />
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cn(
+          "relative flex h-full w-full flex-col border-l border-border bg-background shadow-drawer",
+          width,
+        )}
+      >
+        <div className="flex items-start justify-between border-b border-border px-5 py-3.5">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+            {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-1 rounded-[8px] px-2 py-1 text-muted-foreground hover:bg-muted"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="border-t border-border px-5 py-3">{footer}</div>}
+      </div>
+    </div>
+  );
+}

@@ -1,23 +1,21 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { Billable, Engagement } from "@/lib/focus/extract";
-import { Button, Field, Modal, Select, Tag, Toggle } from "./ui";
-
-type CalendarEvent = {
-  id: string;
-  title: string;
-  time: string;
-  status: "uncategorized" | "ready";
-};
+import type { CalendarEvent, Engagement } from "@/lib/focus/extract";
+import { EventsDrawer } from "./EventsDrawer";
+import { Button, Field, Select, Tag, Toggle } from "./ui";
 
 export function ReadyScreen({
   engagement,
   created,
+  events,
+  onSaveEvents,
   onPreviewFriday,
   onBack,
 }: {
   engagement: Engagement;
   created: boolean;
+  events: CalendarEvent[];
+  onSaveEvents: (updated: CalendarEvent[]) => void;
   onPreviewFriday: () => void;
   onBack: () => void;
 }) {
@@ -27,10 +25,7 @@ export function ReadyScreen({
   const [billable, setBillable] = useState(true);
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    { id: "e1", title: "Northstar weekly check-in", time: "Today, 14:00–14:45", status: "uncategorized" },
-  ]);
-  const [editing, setEditing] = useState<CalendarEvent | null>(null);
+  const [drawer, setDrawer] = useState(false);
 
   useEffect(() => {
     if (!running) return;
@@ -39,6 +34,7 @@ export function ReadyScreen({
   }, [running]);
 
   const hhmmss = new Date(elapsed * 1000).toISOString().slice(11, 19);
+
 
   return (
     <div className="mx-auto max-w-[900px] px-6 py-8 md:px-10">
@@ -141,20 +137,27 @@ export function ReadyScreen({
       </section>
 
       <section className="mt-6">
-        <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Uncategorized from calendar
-        </h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Uncategorized from calendar
+          </h2>
+          <Button size="sm" onClick={() => setDrawer(true)}>
+            Review
+          </Button>
+        </div>
         <div className="divide-y divide-border rounded-[12px] border border-border">
           {events.map((ev) => (
             <div key={ev.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] text-foreground">{ev.title}</p>
-                <p className="text-[12.5px] text-muted-foreground">{ev.time}</p>
+                <p className="text-[12.5px] text-muted-foreground">
+                  {ev.time} · {ev.hours}h
+                </p>
               </div>
               {ev.status === "ready" ? (
                 <Tag tone="teal">Ready to track</Tag>
               ) : (
-                <Button size="sm" onClick={() => setEditing(ev)}>
+                <Button size="sm" onClick={() => setDrawer(true)}>
                   Categorize
                 </Button>
               )}
@@ -163,70 +166,14 @@ export function ReadyScreen({
         </div>
       </section>
 
-      <CategorizeModal
-        event={editing}
+      <EventsDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
         engagement={engagement}
-        onClose={() => setEditing(null)}
-        onSave={(id) => {
-          setEvents((list) => list.map((e) => (e.id === id ? { ...e, status: "ready" } : e)));
-          setEditing(null);
-        }}
+        events={events}
+        onSave={onSaveEvents}
       />
     </div>
   );
 }
 
-function CategorizeModal({
-  event,
-  engagement,
-  onClose,
-  onSave,
-}: {
-  event: CalendarEvent | null;
-  engagement: Engagement;
-  onClose: () => void;
-  onSave: (id: string) => void;
-}) {
-  const [projectId, setProjectId] = useState(engagement.projects[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState(engagement.categories[0]?.id ?? "");
-  const [billable, setBillable] = useState<Billable>("billable");
-
-  return (
-    <Modal open={!!event} onClose={onClose} title="Categorize event" description={event?.title}>
-      <div className="space-y-4">
-        <Field label="Project">
-          <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {engagement.projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Category">
-          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            <option value="">No category</option>
-            {engagement.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Billing">
-          <Select value={billable} onChange={(e) => setBillable(e.target.value as Billable)}>
-            <option value="billable">Billable</option>
-            <option value="non-billable">Non-billable</option>
-            <option value="ask">Ask each time</option>
-          </Select>
-        </Field>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" onClick={() => event && onSave(event.id)}>
-            Save
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
