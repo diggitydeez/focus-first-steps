@@ -16,6 +16,7 @@ export function EventsDrawer({
   engagement,
   events,
   onSave,
+  focusId,
 }: {
   open: boolean;
   onClose: () => void;
