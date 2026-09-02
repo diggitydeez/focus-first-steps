@@ -359,6 +359,10 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
   ];
 }
 
+/** Status an event takes once categorized: past events become tracked, future become planned. */
+export const categorizedStatus = (e: CalendarEvent): CalendarEvent["status"] =>
+  e.past ? "tracked" : "planned";
+
 /** Lightweight parse used by the "Suggest from description" action. */
 export function suggestProject(text: string): { name: string; billable: Billable; estimate: string } {
   const t = text.trim();
