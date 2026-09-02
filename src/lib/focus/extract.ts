@@ -198,6 +198,12 @@ export type TrackedEntry = {
   description: string;
   rowId: string;
   hours: number;
+  /** Overrides the row's billing status when set. */
+  billable?: Billable | undefined;
+  /** 0 = Monday … 4 = Friday, used by the calendar view. */
+  day?: number | undefined;
+  /** Start hour in 24h decimal, e.g. 9.5 = 09:30. */
+  start?: number | undefined;
 };
 
 export type CalendarEvent = {
@@ -209,10 +215,14 @@ export type CalendarEvent = {
   categoryId: string;
   billable: Billable;
   status: "uncategorized" | "ready";
+  day: number;
+  start: number;
 };
 
 export const DEFAULT_NON_BILLABLE_TARGET = 10;
 export const DEFAULT_WEEKLY_TARGET = 40;
+
+export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
 
 const PROJECT_WORK = [
   ["Discovery and scoping", 3.5],
@@ -229,8 +239,15 @@ export function seedEntries(e: Engagement): TrackedEntry[] {
   projects.forEach((p, i) => {
     const a = PROJECT_WORK[(i * 2) % PROJECT_WORK.length]!;
     const b = PROJECT_WORK[(i * 2 + 1) % PROJECT_WORK.length]!;
-    out.push({ id: `${p.id}-a`, description: a[0], rowId: p.id, hours: a[1] });
-    out.push({ id: `${p.id}-b`, description: b[0], rowId: p.id, hours: b[1] });
+    out.push({ id: `${p.id}-a`, description: a[0], rowId: p.id, hours: a[1], day: i % 5, start: 9 });
+    out.push({
+      id: `${p.id}-b`,
+      description: b[0],
+      rowId: p.id,
+      hours: b[1],
+      day: (i + 2) % 5,
+      start: 13,
+    });
   });
   e.categories
     .filter((c) => c.name.trim())
@@ -240,10 +257,13 @@ export function seedEntries(e: Engagement): TrackedEntry[] {
         description: i === 0 ? "Client check-in and revisions" : `${c.name} time`,
         rowId: c.id,
         hours: i === 0 ? 4.2 : 1.5,
+        day: (i + 1) % 5,
+        start: 15,
       });
     });
   return out;
 }
+
 
 export function seedEvents(e: Engagement): CalendarEvent[] {
   const project = e.projects[0]?.id ?? "";
