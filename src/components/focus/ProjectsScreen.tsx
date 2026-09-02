@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BILLING_LABEL, suggestProject, type Billable, type Engagement, type WorkRow } from "@/lib/focus/extract";
 import { Button, Drawer, Field, Input, Select, Tag } from "./ui";
 
