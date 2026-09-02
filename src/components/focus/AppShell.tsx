@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type NavKey = "timer" | "reports" | "projects" | "tasks";
+type NavKey = "timer" | "calendar" | "reports" | "projects" | "tasks";
 
 const SECTIONS: { label: string; items: { key: NavKey; label: string; icon: ReactNode }[] }[] = [
   {
     label: "Track",
-    items: [{ key: "timer", label: "Timer", icon: <ClockIcon /> }],
+    items: [
+      { key: "timer", label: "Timer", icon: <ClockIcon /> },
+      { key: "calendar", label: "Calendar", icon: <CalendarIcon /> },
+    ],
   },
   {
     label: "Analyze",
@@ -122,6 +125,15 @@ function ListIcon() {
       <circle cx="3" cy="4.5" r="1" fill="currentColor" />
       <circle cx="3" cy="8" r="1" fill="currentColor" />
       <circle cx="3" cy="11.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="3.5" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
