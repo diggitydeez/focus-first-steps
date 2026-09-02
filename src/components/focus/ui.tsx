@@ -1,4 +1,14 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export function Button({
@@ -60,19 +70,223 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={cn(inputClass, props.className)} />;
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+type SelectOption = { value: string; label: string; group?: string | undefined };
+
+function collectOptions(children: ReactNode, group?: string): SelectOption[] {
+  const out: SelectOption[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    const props = child.props as { value?: string; label?: string; children?: ReactNode };
+    if (child.type === "optgroup") {
+      out.push(...collectOptions(props.children, props.label));
+    } else if (child.type === "option") {
+      out.push({
+        value: String(props.value ?? ""),
+        label: typeof props.children === "string" ? props.children : String(props.children ?? ""),
+        group,
+      });
+    }
+  });
+  return out;
+}
+
+/**
+ * Accessible custom select for this prototype. No native <select> is used anywhere:
+ * the listbox is rendered through a portal with fixed positioning so it can never be
+ * clipped by a drawer or modal.
+ */
+export function PrototypeSelect({
+  value,
+  onChange,
+  onValueChange,
+  children,
+  className,
+  disabled,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange?: ((e: { target: { value: string } }) => void) | undefined;
+  onValueChange?: ((value: string) => void) | undefined;
+  children: ReactNode;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
+  "aria-label"?: string | undefined;
+}) {
+  const options = collectOptions(children);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const id = useId();
+
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+  const selected = options[selectedIndex];
+
+  const place = () => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    const height = Math.min(260, options.length * 34 + 10);
+    setRect({
+      top: below < height + 12 ? Math.max(8, r.top - height - 6) : r.bottom + 6,
+      left: r.left,
+      width: r.width,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    const onScroll = () => place();
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || listRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, [open]);
+
+  const commit = (v: string) => {
+    onChange?.({ target: { value: v } });
+    onValueChange?.(v);
+    setOpen(false);
+    btnRef.current?.focus();
+  };
+
+  const openList = () => {
+    if (disabled) return;
+    setActive(selectedIndex);
+    setOpen(true);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (!open) {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        openList();
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => Math.min(options.length - 1, i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => Math.max(0, i - 1));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActive(options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const opt = options[active];
+      if (opt) commit(opt.value);
+    }
+  };
+
   return (
-    <select
-      {...props}
-      className={cn(inputClass, "appearance-none bg-[right_0.6rem_center] bg-no-repeat pr-8", props.className)}
-      style={{
-        backgroundImage:
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%23626262' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
-        ...props.style,
-      }}
-    />
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={`${id}-listbox`}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className={cn(inputClass, "flex items-center justify-between gap-2 pr-2 text-left", className)}
+      >
+        <span className="truncate">{selected?.label ?? ""}</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="shrink-0 text-muted-foreground">
+          <path
+            d="M2 4.5 6 8.5 10 4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open &&
+        rect &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={listRef}
+            id={`${id}-listbox`}
+            role="listbox"
+            aria-label={ariaLabel}
+            tabIndex={-1}
+            onKeyDown={onKeyDown}
+            style={{ position: "fixed", top: rect.top, left: rect.left, minWidth: rect.width, zIndex: 9999 }}
+            className="max-h-[260px] overflow-auto rounded-[10px] border border-border bg-background py-1 shadow-drawer"
+          >
+            {options.map((o, i) => {
+              const isSelected = o.value === value;
+              const showGroup = o.group && o.group !== options[i - 1]?.group;
+              return (
+                <div key={`${o.group ?? ""}-${o.value}`}>
+                  {showGroup && (
+                    <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {o.group}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => commit(o.value)}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-foreground",
+                      i === active && "bg-muted",
+                      isSelected && "font-medium text-primary",
+                    )}
+                  >
+                    <span className="truncate">{o.label}</span>
+                    {isSelected && <span aria-hidden>✓</span>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
+
+export const Select = PrototypeSelect;
+
 
 export function Tag({
   children,
