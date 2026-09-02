@@ -119,7 +119,7 @@ export function WeekScreen({
         </div>
 
         <p className="mt-2 text-[14px] text-foreground">
-          {tracked.toFixed(1)} of {planned} planned hours used
+          {tracked.toFixed(1)} of {planned}h contractual included hours used
         </p>
         <div
           className="mt-2 h-2 w-full rounded-full bg-secondary"
