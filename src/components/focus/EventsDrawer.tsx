@@ -34,7 +34,15 @@ export function EventsDrawer({
 
   function save(ids: string[], close = false) {
     onSave(draft.filter((e) => ids.includes(e.id)).map((e) => ({ ...e, status: "ready" as const })));
+    setDraft((list) => list.filter((e) => !ids.includes(e.id)));
     if (close) onClose();
+  }
+
+  function saveAll() {
+    if (draft.length === 0) return;
+    onSave(draft.map((e) => ({ ...e, status: "ready" as const })));
+    setDraft([]);
+    onClose();
   }
 
   function applyToBoth() {
@@ -42,6 +50,7 @@ export function EventsDrawer({
     if (!first) return;
     const shared = { projectId: first.projectId, categoryId: first.categoryId, billable: first.billable };
     onSave(draft.map((e) => ({ ...e, ...shared, status: "ready" as const })));
+    setDraft([]);
     onClose();
   }
 
@@ -55,23 +64,19 @@ export function EventsDrawer({
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" onClick={applyToBoth} disabled={draft.length < 2}>
-            Apply to both
+            Apply first selection to both
           </Button>
           <div className="flex gap-2">
             <Button size="sm" onClick={onClose}>
               Close
             </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={draft.length === 0}
-              onClick={() => save(draft.map((e) => e.id), true)}
-            >
+            <Button size="sm" variant="primary" disabled={draft.length === 0} onClick={saveAll}>
               Save all
             </Button>
           </div>
         </div>
       }
+
     >
       {draft.length === 0 ? (
         <p className="text-[13.5px] text-muted-foreground">

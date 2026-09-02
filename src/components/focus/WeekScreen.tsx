@@ -30,7 +30,9 @@ export function WeekScreen({
   onNonBillableTarget: (value: number) => void;
   onRestart: () => void;
 }) {
-  const [planned, setPlanned] = useState(() => Number(engagement.includedHours) || 20);
+  const planned = Number(engagement.includedHours) || 20;
+  const [nextWeekDraft, setNextWeekDraft] = useState(() => String(planned));
+  const [nextWeekPlanned, setNextWeekPlanned] = useState<number | null>(null);
   const [timeDrawer, setTimeDrawer] = useState(false);
   const [eventsDrawer, setEventsDrawer] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -117,7 +119,7 @@ export function WeekScreen({
         </div>
 
         <p className="mt-2 text-[14px] text-foreground">
-          {tracked.toFixed(1)} of {planned} planned hours used
+          {tracked.toFixed(1)} of {planned}h contractual included hours used
         </p>
         <div
           className="mt-2 h-2 w-full rounded-full bg-secondary"
@@ -149,10 +151,19 @@ export function WeekScreen({
           <Button size="sm" onClick={() => setAddOpen(true)}>
             Add missed time
           </Button>
-          <Button size="sm" onClick={() => setAdjustOpen(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setNextWeekDraft(String(nextWeekPlanned ?? planned));
+              setAdjustOpen(true);
+            }}
+          >
             Adjust next week
           </Button>
         </div>
+        {nextWeekPlanned !== null && (
+          <p className="mt-2 text-[12.5px] text-teal">Next week: {nextWeekPlanned}h planned</p>
+        )}
       </section>
 
       <div className="mt-4">
@@ -266,22 +277,29 @@ export function WeekScreen({
       <Modal
         open={adjustOpen}
         onClose={() => setAdjustOpen(false)}
-        title="Adjust next week"
-        description="Change the hours you plan to work on this engagement."
+        title="Adjust next week’s planned hours"
+        description="Plan how much time you intend to spend on this engagement next week. This does not change the contractual included hours in your agreement."
       >
-        <Field label="Planned hours">
+        <Field label="Planned hours for next week">
           <Input
             inputMode="decimal"
-            value={planned}
-            onChange={(e) => setPlanned(Number(e.target.value.replace(/[^\d.]/g, "")) || 0)}
+            value={nextWeekDraft}
+            onChange={(e) => setNextWeekDraft(e.target.value.replace(/[^\d.]/g, ""))}
           />
         </Field>
         <p className="mt-2 text-[12.5px] text-muted-foreground">
-          Tracked {tracked.toFixed(1)}h · {Math.min(100, Math.round((tracked / Math.max(planned, 1)) * 100))}% of plan
+          Contractual included hours stay at {planned}h and continue to drive the forecast.
         </p>
-        <div className="mt-4 flex justify-end">
-          <Button variant="primary" onClick={() => setAdjustOpen(false)}>
-            Save
+        <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={() => setAdjustOpen(false)}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setNextWeekPlanned(Number(nextWeekDraft) || 0);
+              setAdjustOpen(false);
+            }}
+          >
+            Save plan
           </Button>
         </div>
       </Modal>

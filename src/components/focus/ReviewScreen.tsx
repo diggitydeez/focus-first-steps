@@ -76,7 +76,7 @@ export function ReviewScreen({
             <Input
               value={engagement.clientName}
               onChange={(e) => set("clientName", e.target.value)}
-              placeholder="Client name"
+              placeholder={engagement.clientName ? "Client name" : "Client name — needs your review"}
             />
           </Field>
 
@@ -183,7 +183,7 @@ export function ReviewScreen({
         <RowSection
           title="Projects"
           singular="project"
-          note="Maximum of 3. Keep it small for the first week."
+          note="We suggest up to 3 to start. You can add more projects later from the Projects page."
           rows={engagement.projects}
           onUpdate={(id, patch) => updateRow("projects", id, patch)}
           onRemove={(id) => removeRow("projects", id)}

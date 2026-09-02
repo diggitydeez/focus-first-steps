@@ -43,10 +43,15 @@ export function BurnForecast({ engagement, tracked }: { engagement: Engagement; 
   const daysEarly = crossDate ? Math.round((end.getTime() - crossDate.getTime()) / DAY) : 0;
 
   const rate = included > 0 && fee > 0 ? fee / included : 0;
-  const differenceHours = forecastEndHours - included;
-  const effortValue = Math.abs(differenceHours) * rate;
+  // Derive the money figures from the same rounded numbers shown on screen, so a
+  // reader multiplying displayed hours by the displayed rate gets the same result.
+  const shownForecast = Number(forecastEndHours.toFixed(1));
+  const shownRate = Math.round(rate);
+  const differenceHours = Number((shownForecast - included).toFixed(1));
+  const effortValue = Math.abs(differenceHours) * shownRate;
   const periodWord = engagement.period === "month" ? "monthly" : "weekly";
   const money = (n: number) => `${symbol}${Math.round(n).toLocaleString("en-GB")}`;
+  const approx = (n: number) => `≈${money(n)}`;
   const showSummary =
     included > 0 && rate > 0 && (engagement.billingModel === "retainer" || engagement.billingModel === "fixed");
 
@@ -175,16 +180,16 @@ export function BurnForecast({ engagement, tracked }: { engagement: Engagement; 
       {showSummary && (
         <div className="mt-3 rounded-[10px] border border-border px-3.5 py-3">
           <p className="text-[13.5px] font-medium text-foreground">
-            Forecast: {forecastEndHours.toFixed(1)}h against {included}h included
+            Forecast: {shownForecast.toFixed(1)}h against {included}h included
           </p>
           <p className="mt-1 text-[13px] text-muted-foreground">
             {differenceHours >= 0
               ? `${differenceHours.toFixed(1)}h above the ${periodWord} allowance. At the ${
                   engagement.billingModel === "fixed" ? "fee" : "retainer"
-                }’s effective rate of ${money(rate)}/h, this represents approximately ${money(
+                }’s effective rate of ${approx(shownRate)}/h, this represents approximately ${approx(
                   effortValue,
                 )} of additional effort to review.`
-              : `${Math.abs(differenceHours).toFixed(1)}h below the ${periodWord} allowance, leaving approximately ${money(
+              : `${Math.abs(differenceHours).toFixed(1)}h below the ${periodWord} allowance, leaving approximately ${approx(
                   effortValue,
                 )} of contracted capacity.`}
           </p>
