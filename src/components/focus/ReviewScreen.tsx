@@ -19,17 +19,22 @@ const BILLABLE_OPTS: { value: Billable; label: string }[] = [
 
 export function ReviewScreen({
   engagement,
+  weeklyTarget,
+  onWeeklyTargetChange,
   onChange,
   onBack,
   onSkip,
   onConfirm,
 }: {
   engagement: Engagement;
+  weeklyTarget: number;
+  onWeeklyTargetChange: (v: number) => void;
   onChange: (e: Engagement) => void;
   onBack: () => void;
   onSkip: () => void;
   onConfirm: () => void;
 }) {
+
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Engagement>(key: K, value: Engagement[K]) =>
     onChange({ ...engagement, [key]: value });
@@ -140,7 +145,40 @@ export function ReviewScreen({
           <Field label="Start date">
             <Input type="date" value={engagement.startDate} onChange={(e) => set("startDate", e.target.value)} />
           </Field>
+
+          <Field
+            label="Non-billable target (optional)"
+            hint={
+              <Tooltip text="The share of tracked engagement time you aim to keep outside billable delivery." />
+            }
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                inputMode="numeric"
+                className="w-24"
+                value={String(engagement.nonBillableTarget)}
+                onChange={(e) => set("nonBillableTarget", Number(e.target.value.replace(/[^\d.]/g, "")) || 0)}
+              />
+              <span className="text-[13px] text-muted-foreground">% of tracked time</span>
+            </div>
+          </Field>
+
+          <Field
+            label="Weekly working target (optional)"
+            hint={<Tooltip text="Your available time across client work and business administration." />}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                inputMode="numeric"
+                className="w-24"
+                value={String(weeklyTarget)}
+                onChange={(e) => onWeeklyTargetChange(Number(e.target.value.replace(/[^\d.]/g, "")) || 0)}
+              />
+              <span className="text-[13px] text-muted-foreground">hours per week</span>
+            </div>
+          </Field>
         </div>
+
 
         <RowSection
           title="Projects"

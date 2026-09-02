@@ -6,6 +6,8 @@ export type WorkRow = {
   name: string;
   billable: Billable;
   suggested: boolean;
+  estimate?: string | undefined;
+  description?: string | undefined;
 };
 
 export type Engagement = {
@@ -21,6 +23,8 @@ export type Engagement = {
   startDate: string;
   projects: WorkRow[];
   categories: WorkRow[];
+  /** Share of tracked engagement time aimed to stay outside billable delivery. */
+  nonBillableTarget: number;
 };
 
 export const SAMPLE_INPUT =
@@ -162,6 +166,7 @@ export function extractEngagement(text: string): Engagement {
     period: billing.model === "retainer" ? "month" : "project",
     hoursConfirm: hours.confirm,
     startDate: new Date().toISOString().slice(0, 10),
+    nonBillableTarget: DEFAULT_NON_BILLABLE_TARGET,
     projects,
     categories: [
       { id: uid(), name: "Client communication & admin", billable: "ask", suggested: true },
@@ -183,3 +188,114 @@ export const BILLING_LABEL: Record<BillingModel, string> = {
   fixed: "Fixed fee",
   retainer: "Monthly retainer",
 };
+
+/* ---------- workspace + simulated activity (single source of truth) ---------- */
+
+export type TrackedEntry = {
+  id: string;
+  description: string;
+  rowId: string;
+  hours: number;
+};
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  time: string;
+  hours: number;
+  projectId: string;
+  categoryId: string;
+  billable: Billable;
+  status: "uncategorized" | "ready";
+};
+
+export const DEFAULT_NON_BILLABLE_TARGET = 10;
+export const DEFAULT_WEEKLY_TARGET = 40;
+
+const PROJECT_WORK = [
+  ["Discovery and scoping", 3.5],
+  ["Build and iteration", 5.5],
+  ["Structure and setup", 4],
+  ["Review pass", 2.5],
+  ["Implementation", 3],
+] as const;
+
+/** Deterministic week-one activity derived from the confirmed engagement. */
+export function seedEntries(e: Engagement): TrackedEntry[] {
+  const out: TrackedEntry[] = [];
+  const projects = e.projects.filter((p) => p.name.trim());
+  projects.forEach((p, i) => {
+    const a = PROJECT_WORK[(i * 2) % PROJECT_WORK.length]!;
+    const b = PROJECT_WORK[(i * 2 + 1) % PROJECT_WORK.length]!;
+    out.push({ id: `${p.id}-a`, description: a[0], rowId: p.id, hours: a[1] });
+    out.push({ id: `${p.id}-b`, description: b[0], rowId: p.id, hours: b[1] });
+  });
+  e.categories
+    .filter((c) => c.name.trim())
+    .forEach((c, i) => {
+      out.push({
+        id: `${c.id}-a`,
+        description: i === 0 ? "Client check-in and revisions" : `${c.name} time`,
+        rowId: c.id,
+        hours: i === 0 ? 4.2 : 1.5,
+      });
+    });
+  return out;
+}
+
+export function seedEvents(e: Engagement): CalendarEvent[] {
+  const project = e.projects[0]?.id ?? "";
+  const category = e.categories[0]?.id ?? "";
+  return [
+    {
+      id: "ev1",
+      title: `${e.clientName} weekly check-in`,
+      time: "Thu, 14:00–14:45",
+      hours: 0.75,
+      projectId: project,
+      categoryId: category,
+      billable: "ask",
+      status: "uncategorized",
+    },
+    {
+      id: "ev2",
+      title: "Feedback and revisions call",
+      time: "Fri, 10:00–11:00",
+      hours: 1,
+      projectId: project,
+      categoryId: category,
+      billable: "ask",
+      status: "uncategorized",
+    },
+  ];
+}
+
+/** Lightweight parse used by the "Suggest from description" action. */
+export function suggestProject(text: string): { name: string; billable: Billable; estimate: string } {
+  const t = text.trim();
+  const hours = t.match(/(\d[\d.,]*)\s*(?:hours|hrs|hour|h)\b/i);
+  const nonBillable = /non-?billable|internal|admin|unpaid/i.test(t);
+  const ask = /\bask\b|not sure|unclear|decide later/i.test(t);
+  const first = t.split(/[.,;\n]/)[0] ?? "";
+  const name = titleCase(cleanName(first.replace(/^(a|an|the)\s+/i, ""))) || "New project";
+  return {
+    name: name.slice(0, 48),
+    billable: nonBillable ? "non-billable" : ask ? "ask" : "billable",
+    estimate: hours ? String(Number((hours[1] ?? "").replace(",", ".")) || "") : "",
+  };
+}
+
+export function rowLabel(e: Engagement, id: string) {
+  return [...e.projects, ...e.categories].find((r) => r.id === id)?.name ?? "Unassigned";
+}
+
+export function periodEnd(e: Engagement): Date {
+  const start = new Date(e.startDate || new Date().toISOString().slice(0, 10));
+  const d = new Date(start);
+  if (e.period === "week") d.setDate(d.getDate() + 7);
+  else if (e.period === "month") d.setMonth(d.getMonth() + 1);
+  else d.setDate(d.getDate() + 30);
+  return d;
+}
+
+export const formatDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
