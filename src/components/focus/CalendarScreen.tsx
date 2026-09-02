@@ -6,7 +6,7 @@ import {
   type Engagement,
   type TrackedEntry,
 } from "@/lib/focus/extract";
-import { Button, Tag } from "./ui";
+import { Button, Drawer, Tag } from "./ui";
 
 const START_HOUR = 8;
 const END_HOUR = 19;
@@ -14,6 +14,56 @@ const PX_PER_HOUR = 44;
 
 function top(start: number) {
   return (start - START_HOUR) * PX_PER_HOUR;
+}
+
+const BILLING_LABEL: Record<CalendarEvent["billable"], string> = {
+  billable: "Billable",
+  "non-billable": "Non-billable",
+  ask: "Ask each time",
+};
+
+/** Read-only detail panel for a categorized calendar event (tracked or planned). */
+function EventDetailDrawer({
+  event,
+  engagement,
+  onClose,
+}: {
+  event: CalendarEvent | null;
+  engagement: Engagement;
+  onClose: () => void;
+}) {
+  if (!event) return null;
+  const project = engagement.projects.find((p) => p.id === event.projectId)?.name ?? "No project";
+  const category = event.categoryId
+    ? (engagement.categories.find((c) => c.id === event.categoryId)?.name ?? "No category")
+    : "No category";
+  return (
+    <Drawer open={event !== null} onClose={onClose} title={event.title} description={`${event.time} · ${event.hours}h`}>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between rounded-[10px] border border-border px-3.5 py-3">
+          <span className="text-[13px] text-muted-foreground">State</span>
+          {event.status === "tracked" ? <Tag tone="teal">Tracked</Tag> : <Tag tone="neutral">Planned</Tag>}
+        </div>
+        <div className="flex items-center justify-between rounded-[10px] border border-border px-3.5 py-3">
+          <span className="text-[13px] text-muted-foreground">Project</span>
+          <span className="text-[13.5px] font-medium text-foreground">{project}</span>
+        </div>
+        <div className="flex items-center justify-between rounded-[10px] border border-border px-3.5 py-3">
+          <span className="text-[13px] text-muted-foreground">Category</span>
+          <span className="text-[13.5px] font-medium text-foreground">{category}</span>
+        </div>
+        <div className="flex items-center justify-between rounded-[10px] border border-border px-3.5 py-3">
+          <span className="text-[13px] text-muted-foreground">Billing</span>
+          <span className="text-[13.5px] font-medium text-foreground">{BILLING_LABEL[event.billable]}</span>
+        </div>
+        <div className="flex justify-end pt-1">
+          <Button size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Drawer>
+  );
 }
 
 export function CalendarScreen({
@@ -28,12 +78,14 @@ export function CalendarScreen({
   entries: TrackedEntry[];
   events: CalendarEvent[];
   running: { description: string; rowId: string; day: number; start: number; hours: number } | null;
-  onOpenEvent: () => void;
+  onOpenEvent: (id: string) => void;
   onOpenEntry: (id: string) => void;
 }) {
   const planned = plannedBlocks(engagement);
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
   const pending = events.filter((e) => e.status === "uncategorized").length;
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detail = events.find((e) => e.id === detailId && e.status !== "uncategorized") ?? null;
 
   return (
     <div className="mx-auto max-w-[1080px] px-6 py-8 md:px-10">
@@ -46,11 +98,11 @@ export function CalendarScreen({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone="neutral">Planned</Tag>
-          <Tag tone="warning">Imported event</Tag>
+          <Tag tone="accent">Needs review</Tag>
           <Tag tone="teal">Tracked</Tag>
           {pending > 0 && (
-            <Button size="sm" onClick={onOpenEvent}>
-              Categorize {pending}
+            <Button size="sm" onClick={() => onOpenEvent(events.find((e) => e.status === "uncategorized")!.id)}>
+              Review {pending}
             </Button>
           )}
         </div>
@@ -105,24 +157,46 @@ export function CalendarScreen({
 
                 {events
                   .filter((e) => e.day === day)
-                  .map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={onOpenEvent}
-                      className={`absolute inset-x-1 overflow-hidden rounded-[6px] px-1.5 py-0.5 text-left text-[11px] ${
-                        e.status === "uncategorized"
-                          ? "border border-warning/50 bg-warning-soft text-warning hover:border-warning"
-                          : "border border-teal/40 bg-teal-soft text-teal"
-                      }`}
-                      style={{ top: top(e.start), height: Math.max(22, e.hours * PX_PER_HOUR - 4) }}
-                    >
-                      <span className="block truncate font-medium">{e.title}</span>
-                      <span className="block truncate">
-                        {e.status === "uncategorized" ? "Needs categorizing" : "Ready to track"}
-                      </span>
-                    </button>
-                  ))}
+                  .map((e) =>
+                    e.status === "uncategorized" ? (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => onOpenEvent(e.id)}
+                        className="absolute inset-x-1 overflow-hidden rounded-[6px] border border-dashed border-primary/50 bg-accent-soft px-1.5 py-0.5 text-left text-[11px] text-accent-foreground hover:border-primary"
+                        style={{ top: top(e.start), height: Math.max(22, e.hours * PX_PER_HOUR - 4) }}
+                      >
+                        <span className="block truncate font-medium">{e.title}</span>
+                        <span className="block truncate">Needs review</span>
+                      </button>
+                    ) : e.status === "tracked" ? (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => setDetailId(e.id)}
+                        className="absolute inset-x-1 overflow-hidden rounded-[6px] border border-teal/40 bg-teal-soft px-1.5 py-0.5 text-left text-[11px] text-teal hover:border-teal"
+                        style={{ top: top(e.start), height: Math.max(22, e.hours * PX_PER_HOUR - 4) }}
+                      >
+                        <span className="block truncate font-medium">{e.title}</span>
+                        <span className="block truncate">
+                          Tracked · {engagement.projects.find((p) => p.id === e.projectId)?.name ?? "No project"}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => setDetailId(e.id)}
+                        className="absolute inset-x-1 overflow-hidden rounded-[6px] border border-dashed border-border bg-secondary/70 px-1.5 py-0.5 text-left text-[11px] text-muted-foreground hover:border-muted-foreground/50"
+                        style={{ top: top(e.start), height: Math.max(22, e.hours * PX_PER_HOUR - 4) }}
+                      >
+                        <span className="block truncate font-medium">{e.title}</span>
+                        <span className="block truncate">
+                          Planned · {engagement.projects.find((p) => p.id === e.projectId)?.name ?? "No project"}
+                        </span>
+                      </button>
+                    ),
+                  )}
 
                 {running && running.day === day && (
                   <div
@@ -142,8 +216,11 @@ export function CalendarScreen({
       </div>
 
       <p className="mt-3 text-[12.5px] text-muted-foreground">
-        Simulated week-one view. Click an imported event to categorize it, or a tracked entry to edit its details.
+        Simulated week-one view. Click a needs-review event to categorize it, or a tracked or planned event to see its
+        details.
       </p>
+
+      <EventDetailDrawer event={detail} engagement={engagement} onClose={() => setDetailId(null)} />
     </div>
   );
 }
