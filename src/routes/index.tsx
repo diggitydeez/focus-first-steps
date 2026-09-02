@@ -75,6 +75,7 @@ function Index() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [timer, setTimer] = useState<TimerState>(() => emptyTimer(""));
   const [calEvents, setCalEvents] = useState(false);
+  const [calEventFocus, setCalEventFocus] = useState<string | null>(null);
   const [calTime, setCalTime] = useState<string | null>(null);
 
   const handleExtracted = useCallback((e: Engagement) => {
@@ -228,15 +229,22 @@ function Index() {
             entries={activeEntries}
             events={activeEvents}
             running={running}
-            onOpenEvent={() => setCalEvents(true)}
+            onOpenEvent={(id) => {
+              setCalEventFocus(id);
+              setCalEvents(true);
+            }}
             onOpenEntry={(id) => setCalTime(id)}
           />
           <EventsDrawer
             open={calEvents}
-            onClose={() => setCalEvents(false)}
+            onClose={() => {
+              setCalEvents(false);
+              setCalEventFocus(null);
+            }}
             engagement={active}
             events={activeEvents}
             onSave={saveEvents}
+            focusId={calEventFocus ?? undefined}
           />
           <TimeDrawer
             open={calTime !== null}

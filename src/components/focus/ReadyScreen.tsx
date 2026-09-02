@@ -176,8 +176,10 @@ export function ReadyScreen({
                   {ev.time} · {ev.hours}h
                 </p>
               </div>
-              {ev.status === "ready" ? (
-                <Tag tone="teal">Ready to track</Tag>
+              {ev.status !== "uncategorized" ? (
+                <Tag tone={ev.status === "tracked" ? "teal" : "neutral"}>
+                  {ev.status === "tracked" ? "Tracked" : "Planned"}
+                </Tag>
               ) : (
                 <Button size="sm" onClick={() => setDrawer(true)}>
                   Categorize

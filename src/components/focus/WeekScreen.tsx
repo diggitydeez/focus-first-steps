@@ -45,7 +45,7 @@ export function WeekScreen({
   const eventEntries: TrackedEntry[] = useMemo(
     () =>
       events
-        .filter((e) => e.status === "ready")
+        .filter((e) => e.status === "tracked")
         .map((e) => ({
           id: `ev-${e.id}`,
           description: e.title,
