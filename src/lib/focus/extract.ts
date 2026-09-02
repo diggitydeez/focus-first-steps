@@ -271,7 +271,10 @@ export type CalendarEvent = {
   projectId: string;
   categoryId: string;
   billable: Billable;
-  status: "uncategorized" | "ready";
+  /** uncategorized = needs review; tracked = past, categorized; planned = future, categorized. */
+  status: "uncategorized" | "tracked" | "planned";
+  /** True when the simulated event sits in the past of the demo week. */
+  past: boolean;
   day: number;
   start: number;
 };
@@ -335,6 +338,7 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      past: true,
       day: 3,
       start: 14,
     },
@@ -347,12 +351,17 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      past: false,
       day: 4,
       start: 10,
     },
 
   ];
 }
+
+/** Status an event takes once categorized: past events become tracked, future become planned. */
+export const categorizedStatus = (e: CalendarEvent): CalendarEvent["status"] =>
+  e.past ? "tracked" : "planned";
 
 /** Lightweight parse used by the "Suggest from description" action. */
 export function suggestProject(text: string): { name: string; billable: Billable; estimate: string } {

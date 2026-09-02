@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import type { Billable, CalendarEvent, Engagement } from "@/lib/focus/extract";
+import { useEffect, useRef, useState } from "react";
+import { categorizedStatus, type Billable, type CalendarEvent, type Engagement } from "@/lib/focus/extract";
+import { cn } from "@/lib/utils";
 import { Button, Drawer, Field, Select } from "./ui";
 
 const BILLING_OPTS: { value: Billable; label: string }[] = [
@@ -15,12 +16,15 @@ export function EventsDrawer({
   engagement,
   events,
   onSave,
+  focusId,
 }: {
   open: boolean;
   onClose: () => void;
   engagement: Engagement;
   events: CalendarEvent[];
   onSave: (updated: CalendarEvent[]) => void;
+  /** Event to highlight when the drawer opens from a calendar click. */
+  focusId?: string | undefined;
 }) {
   const pending = events.filter((e) => e.status === "uncategorized");
   const [draft, setDraft] = useState<CalendarEvent[]>(pending);
@@ -32,8 +36,10 @@ export function EventsDrawer({
   const patch = (id: string, p: Partial<CalendarEvent>) =>
     setDraft((list) => list.map((e) => (e.id === id ? { ...e, ...p } : e)));
 
+  const categorized = (e: CalendarEvent) => ({ ...e, status: categorizedStatus(e) });
+
   function save(ids: string[]) {
-    const saved = draft.filter((e) => ids.includes(e.id)).map((e) => ({ ...e, status: "ready" as const }));
+    const saved = draft.filter((e) => ids.includes(e.id)).map(categorized);
     const remaining = draft.filter((e) => !ids.includes(e.id));
     onSave(saved);
     setDraft(remaining);
@@ -42,7 +48,7 @@ export function EventsDrawer({
 
   function saveAll() {
     if (draft.length === 0) return;
-    onSave(draft.map((e) => ({ ...e, status: "ready" as const })));
+    onSave(draft.map(categorized));
     setDraft([]);
     onClose();
   }
@@ -51,10 +57,15 @@ export function EventsDrawer({
     const first = draft[0];
     if (!first) return;
     const shared = { projectId: first.projectId, categoryId: first.categoryId, billable: first.billable };
-    onSave(draft.map((e) => ({ ...e, ...shared, status: "ready" as const })));
+    onSave(draft.map((e) => categorized({ ...e, ...shared })));
     setDraft([]);
     onClose();
   }
+
+  const focusedRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (open && focusId) focusedRef.current?.scrollIntoView({ block: "nearest" });
+  }, [open, focusId]);
 
 
   return (
@@ -91,7 +102,14 @@ export function EventsDrawer({
       ) : (
         <div className="space-y-4">
           {draft.map((ev) => (
-            <div key={ev.id} className="rounded-[10px] border border-border px-3.5 py-3">
+            <div
+              key={ev.id}
+              ref={ev.id === focusId ? focusedRef : undefined}
+              className={cn(
+                "rounded-[10px] border px-3.5 py-3",
+                ev.id === focusId ? "border-primary ring-2 ring-ring/40" : "border-border",
+              )}
+            >
               <p className="text-[14px] font-medium text-foreground">{ev.title}</p>
               <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                 {ev.time} · {ev.hours}h
