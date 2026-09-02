@@ -62,22 +62,55 @@ function cleanName(raw: string) {
   return out.join(" ").trim();
 }
 
-function inferClient(text: string): { name: string; confirm: boolean } {
-  const patterns = [
-    /\bwork(?:ing)?\s+with\s+([A-Za-z0-9&'’.\- ]{3,40})/i,
-    /\bclient\s+(?:is\s+|called\s+|named\s+)([A-Za-z0-9&'’.\- ]{3,40})/i,
-    /\bwith\s+([A-Z][A-Za-z0-9&'’.\-]*(?:\s+[A-Z][A-Za-z0-9&'’.\-]*){0,3})/,
-    /\bfor\s+([A-Z][A-Za-z0-9&'’.\-]*(?:\s+[A-Z][A-Za-z0-9&'’.\-]*){0,3})/,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const name = cleanName(m[1] ?? "");
-      if (name.length >= 3) return { name: titleCase(name), confirm: false };
+/** Words that end a client name when scanning forward from a lead-in phrase. */
+const CLIENT_STOP = new Set([
+  "on","for","with","covering","including","includes","under","at","to","in","a","an","the","this",
+  "monthly","weekly","hourly","retainer","fixed","flat","per","and","from","about","around","since",
+]);
+
+function clientFrom(tail: string): string {
+  const tokens = (tail.split(/[.,;:!?()]/)[0] ?? "").split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  for (const raw of tokens) {
+    const w = raw.replace(/[^A-Za-z0-9&'’.\-]/g, "");
+    if (!w) break;
+    if (out.length >= 4) break;
+    const lower = w.toLowerCase();
+    if (w === "&" || lower === "and") {
+      if (out.length === 0) break;
+      out.push("&");
+      continue;
     }
+    if (CLIENT_STOP.has(lower)) break;
+    // Only accept capitalised tokens (or short suffixes like "Co.") as part of a name.
+    if (!/^[A-Z0-9]/.test(w)) break;
+    out.push(w);
   }
-  return { name: "New client", confirm: true };
+  while (out.length && out[out.length - 1] === "&") out.pop();
+  return out.join(" ").trim();
 }
+
+function inferClient(text: string): { name: string; confirm: boolean } {
+  const leads = [
+    /\b(?:i\s+)?(?:work|working|works)\s+with\s+/i,
+    /\b(?:i\s+)?(?:support|supporting|supports|help|helping)\s+/i,
+    /\b(?:my\s+)?client\s+(?:is|was)\s+(?:called\s+|named\s+)?/i,
+    /\bclient\s+(?:called|named)\s+/i,
+    /\b(?:i['’]?m|i\s+am)?\s*work(?:ing)?\s+for\s+/i,
+    /\b(?:retainer|engagement|contract)\s+with\s+/i,
+    /\bwith\s+/,
+    /\bfor\s+/,
+  ];
+  for (const lead of leads) {
+    const m = text.match(lead);
+    if (!m || m.index === undefined) continue;
+    const name = clientFrom(text.slice(m.index + m[0].length));
+    if (name.length >= 3) return { name, confirm: false };
+  }
+  // Not confident: leave the field empty so the review step asks for it.
+  return { name: "", confirm: true };
+}
+
 
 function inferBilling(text: string): { model: BillingModel; confirm: boolean } {
   const t = text.toLowerCase();
