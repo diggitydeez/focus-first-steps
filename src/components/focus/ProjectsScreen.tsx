@@ -93,7 +93,15 @@ function AddProjectDrawer({
   const [estimate, setEstimate] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
   const ai = mode === "ai";
+
+  useEffect(() => {
+    if (mode) {
+      submitting.current = false;
+      setError(null);
+    }
+  }, [mode]);
 
   function suggest() {
     if (!description.trim()) return setError("Add a short description first.");
