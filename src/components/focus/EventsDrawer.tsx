@@ -32,10 +32,12 @@ export function EventsDrawer({
   const patch = (id: string, p: Partial<CalendarEvent>) =>
     setDraft((list) => list.map((e) => (e.id === id ? { ...e, ...p } : e)));
 
-  function save(ids: string[], close = false) {
-    onSave(draft.filter((e) => ids.includes(e.id)).map((e) => ({ ...e, status: "ready" as const })));
-    setDraft((list) => list.filter((e) => !ids.includes(e.id)));
-    if (close) onClose();
+  function save(ids: string[]) {
+    const saved = draft.filter((e) => ids.includes(e.id)).map((e) => ({ ...e, status: "ready" as const }));
+    const remaining = draft.filter((e) => !ids.includes(e.id));
+    onSave(saved);
+    setDraft(remaining);
+    if (remaining.length === 0) onClose();
   }
 
   function saveAll() {
@@ -60,7 +62,11 @@ export function EventsDrawer({
       open={open}
       onClose={onClose}
       title="Uncategorized calendar events"
-      description={`${draft.length} imported ${draft.length === 1 ? "event needs" : "events need"} a project and billing status.`}
+      description={
+        draft.length === 0
+          ? "0 uncategorized events"
+          : `${draft.length} imported ${draft.length === 1 ? "event needs" : "events need"} a project and billing status.`
+      }
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" onClick={applyToBoth} disabled={draft.length < 2}>
