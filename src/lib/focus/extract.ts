@@ -37,7 +37,7 @@ function titleCase(s: string) {
   return s
     .trim()
     .split(/\s+/)
-    .map((w) => (w.length > 2 ? w[0].toUpperCase() + w.slice(1) : w))
+    .map((w) => (w.length > 2 ? w[0]!.toUpperCase() + w.slice(1) : w))
     .join(" ");
 }
 
@@ -66,7 +66,7 @@ function inferClient(text: string): { name: string; confirm: boolean } {
   for (const p of patterns) {
     const m = text.match(p);
     if (m) {
-      const name = cleanName(m[1]);
+      const name = cleanName(m[1] ?? "");
       if (name.length >= 3) return { name: titleCase(name), confirm: false };
     }
   }
@@ -84,10 +84,10 @@ function inferBilling(text: string): { model: BillingModel; confirm: boolean } {
 function inferAmount(text: string) {
   const m = text.match(/([€$£])\s?([\d][\d.,]*)/) ?? text.match(/([\d][\d.,]*)\s?(eur|usd|gbp)\b/i);
   if (!m) return { amount: "", currency: "EUR" as const, confirm: true };
-  const symbol = m[1];
+  const symbol = m[1] ?? "";
   const currency =
     symbol === "$" || /usd/i.test(symbol) ? "USD" : symbol === "£" || /gbp/i.test(symbol) ? "GBP" : "EUR";
-  const raw = (/[€$£]/.test(symbol) ? m[2] : m[1]).replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
+  const raw = ((/[€$£]/.test(symbol) ? m[2] : m[1]) ?? "").replace(/[.,](?=\d{3}\b)/g, "").replace(",", ".");
   const n = Number(raw);
   return {
     amount: Number.isFinite(n) ? String(Math.round(n)) : "",
@@ -99,7 +99,7 @@ function inferAmount(text: string) {
 function inferHours(text: string) {
   const m = text.match(/(\d[\d.,]*)\s*(?:hours|hrs|hour|h)\b/i) ?? text.match(/(?:hours|hrs)\D{0,12}(\d[\d.,]*)/i);
   if (!m) return { hours: "", confirm: true };
-  const n = Number(m[1].replace(",", "."));
+  const n = Number((m[1] ?? "").replace(",", "."));
   return { hours: Number.isFinite(n) ? String(n) : "", confirm: !Number.isFinite(n) };
 }
 

@@ -215,7 +215,7 @@ function RowSection({
   rows: WorkRow[];
   onUpdate: (id: string, patch: Partial<WorkRow>) => void;
   onRemove: (id: string) => void;
-  onAdd?: () => void;
+  onAdd?: (() => void) | undefined;
   placeholder: string;
 }) {
   return (

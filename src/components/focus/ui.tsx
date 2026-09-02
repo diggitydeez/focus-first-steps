@@ -36,10 +36,10 @@ export function Field({
   className,
 }: {
   label: string;
-  hint?: ReactNode;
+  hint?: ReactNode | undefined;
   children: ReactNode;
-  badge?: ReactNode;
-  className?: string;
+  badge?: ReactNode | undefined;
+  className?: string | undefined;
 }) {
   return (
     <label className={cn("block", className)}>
@@ -196,9 +196,9 @@ export function Modal({
   open: boolean;
   onClose: () => void;
   title: string;
-  description?: string;
+  description?: string | undefined;
   children: ReactNode;
-  width?: string;
+  width?: string | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
