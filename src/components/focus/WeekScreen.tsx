@@ -92,6 +92,9 @@ export function WeekScreen({
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
         <div>
           <h1 className="text-[26px] font-semibold tracking-tight text-foreground">This week</h1>
+          <p className="mt-1 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            Simulated end-of-week state
+          </p>
           <p className="mt-0.5 text-[13.5px] text-muted-foreground">
             <span className="text-teal">{engagement.clientName || "Your client"}</span> · Friday preview of week one
           </p>
