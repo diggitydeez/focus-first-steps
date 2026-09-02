@@ -415,13 +415,16 @@ export function Modal({
   width?: string | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input, select, button, textarea")?.focus();
+    // Focus once, only when the dialog transitions from closed to open.
+    ref.current?.querySelector<HTMLElement>("input, select, textarea")?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return (
