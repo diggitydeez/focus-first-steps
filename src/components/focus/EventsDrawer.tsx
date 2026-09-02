@@ -32,8 +32,9 @@ export function EventsDrawer({
   const patch = (id: string, p: Partial<CalendarEvent>) =>
     setDraft((list) => list.map((e) => (e.id === id ? { ...e, ...p } : e)));
 
-  function save(ids: string[]) {
+  function save(ids: string[], close = false) {
     onSave(draft.filter((e) => ids.includes(e.id)).map((e) => ({ ...e, status: "ready" as const })));
+    if (close) onClose();
   }
 
   function applyToBoth() {
@@ -41,7 +42,9 @@ export function EventsDrawer({
     if (!first) return;
     const shared = { projectId: first.projectId, categoryId: first.categoryId, billable: first.billable };
     onSave(draft.map((e) => ({ ...e, ...shared, status: "ready" as const })));
+    onClose();
   }
+
 
   return (
     <Drawer
@@ -62,7 +65,7 @@ export function EventsDrawer({
               size="sm"
               variant="primary"
               disabled={draft.length === 0}
-              onClick={() => save(draft.map((e) => e.id))}
+              onClick={() => save(draft.map((e) => e.id), true)}
             >
               Save all
             </Button>

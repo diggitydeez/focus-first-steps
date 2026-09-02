@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { CalendarEvent, Engagement } from "@/lib/focus/extract";
+import type { CalendarEvent, Engagement, TimerState } from "@/lib/focus/extract";
 import { EventsDrawer } from "./EventsDrawer";
 import { Button, Field, Select, Tag, Toggle } from "./ui";
 
@@ -8,6 +8,10 @@ export function ReadyScreen({
   engagement,
   created,
   events,
+  timer,
+  onTimerChange,
+  onStart,
+  onStop,
   onSaveEvents,
   onPreviewFriday,
   onBack,
@@ -15,26 +19,26 @@ export function ReadyScreen({
   engagement: Engagement;
   created: boolean;
   events: CalendarEvent[];
+  timer: TimerState;
+  onTimerChange: (t: TimerState) => void;
+  onStart: () => void;
+  onStop: () => void;
   onSaveEvents: (updated: CalendarEvent[]) => void;
   onPreviewFriday: () => void;
   onBack: () => void;
 }) {
-  const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState(engagement.projects[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState("");
-  const [billable, setBillable] = useState(true);
-  const [running, setRunning] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [drawer, setDrawer] = useState(false);
+  const [, tick] = useState(0);
+  const running = timer.startedAt !== null;
 
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [running]);
 
+  const elapsed = running ? Math.max(0, Math.floor((Date.now() - (timer.startedAt ?? 0)) / 1000)) : 0;
   const hhmmss = new Date(elapsed * 1000).toISOString().slice(11, 19);
-
 
   return (
     <div className="mx-auto max-w-[900px] px-6 py-8 md:px-10">
@@ -53,7 +57,9 @@ export function ReadyScreen({
             ✓
           </span>
           <div>
-            <h1 className="text-[18px] font-semibold text-foreground">{engagement.clientName} is ready</h1>
+            <h1 className="text-[18px] font-semibold text-foreground">
+              {engagement.clientName || "Your client"} is ready
+            </h1>
             <p className="mt-0.5 text-[13.5px] text-muted-foreground">
               Your first entry will already be connected to the structure you just reviewed.
             </p>
@@ -66,7 +72,7 @@ export function ReadyScreen({
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Timer</h2>
           <span className="inline-flex items-center gap-1.5 text-[13px] text-teal">
             <span className="h-2 w-2 rounded-full bg-teal" aria-hidden />
-            {engagement.clientName}
+            {engagement.clientName || "Your client"}
           </span>
         </div>
 
@@ -77,36 +83,46 @@ export function ReadyScreen({
             </label>
             <input
               id="timer-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={timer.description}
+              onChange={(e) => onTimerChange({ ...timer, description: e.target.value })}
               placeholder="What are you working on?"
               className="h-9 w-full rounded-[8px] border border-border px-3 text-sm focus:border-primary focus:outline-none"
             />
           </div>
 
           <Field label="Project" className="w-[190px]">
-            <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <Select
+              value={timer.projectId}
+              onChange={(e) => onTimerChange({ ...timer, projectId: e.target.value })}
+            >
               {engagement.projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name}
+                  {p.name || "Untitled project"}
                 </option>
               ))}
             </Select>
           </Field>
 
           <Field label="Category" className="w-[200px]">
-            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <Select
+              value={timer.categoryId}
+              onChange={(e) => onTimerChange({ ...timer, categoryId: e.target.value })}
+            >
               <option value="">No category</option>
               {engagement.categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name || "Untitled category"}
                 </option>
               ))}
             </Select>
           </Field>
 
           <div className="flex h-9 items-center gap-2">
-            <Toggle checked={billable} onChange={setBillable} label="Billable" />
+            <Toggle
+              checked={timer.billable}
+              onChange={(v) => onTimerChange({ ...timer, billable: v })}
+              label="Billable"
+            />
             <span className="text-[13px] text-foreground">Billable</span>
           </div>
 
@@ -119,7 +135,7 @@ export function ReadyScreen({
             <Button
               variant="primary"
               size="lg"
-              onClick={() => setRunning((r) => !r)}
+              onClick={running ? onStop : onStart}
               className={cn(running && "bg-destructive hover:bg-destructive")}
             >
               {running ? "Stop timer" : "Start timer"}
@@ -129,9 +145,9 @@ export function ReadyScreen({
 
         {running && (
           <p className="border-t border-border px-4 py-2 text-[12.5px] text-muted-foreground">
-            Tracking {description || "untitled work"} ·{" "}
-            {engagement.projects.find((p) => p.id === projectId)?.name ?? "No project"} ·{" "}
-            {billable ? "Billable" : "Non-billable"}
+            Tracking {timer.description || "untitled work"} ·{" "}
+            {engagement.projects.find((p) => p.id === timer.projectId)?.name || "No project"} ·{" "}
+            {timer.billable ? "Billable" : "Non-billable"}
           </p>
         )}
       </section>
@@ -176,4 +192,3 @@ export function ReadyScreen({
     </div>
   );
 }
-

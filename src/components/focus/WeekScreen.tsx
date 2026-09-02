@@ -1,18 +1,21 @@
 import { useMemo, useState } from "react";
 import {
   CURRENCY_SYMBOL,
-  seedEntries,
+  entryBillable,
   type CalendarEvent,
   type Engagement,
   type TrackedEntry,
 } from "@/lib/focus/extract";
 import { BurnForecast } from "./BurnForecast";
 import { EventsDrawer } from "./EventsDrawer";
-import { Button, Drawer, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
+import { TimeDrawer } from "./TimeDrawer";
+import { Button, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
 
 export function WeekScreen({
   engagement,
   weeklyTarget,
+  entries,
+  onEntriesChange,
   events,
   onSaveEvents,
   onNonBillableTarget,
@@ -20,12 +23,13 @@ export function WeekScreen({
 }: {
   engagement: Engagement;
   weeklyTarget: number;
+  entries: TrackedEntry[];
+  onEntriesChange: (entries: TrackedEntry[]) => void;
   events: CalendarEvent[];
   onSaveEvents: (updated: CalendarEvent[]) => void;
   onNonBillableTarget: (value: number) => void;
   onRestart: () => void;
 }) {
-  const [entries, setEntries] = useState<TrackedEntry[]>(() => seedEntries(engagement));
   const [planned, setPlanned] = useState(() => Number(engagement.includedHours) || 20);
   const [timeDrawer, setTimeDrawer] = useState(false);
   const [eventsDrawer, setEventsDrawer] = useState(false);
@@ -35,7 +39,6 @@ export function WeekScreen({
   const [targetDraft, setTargetDraft] = useState(String(engagement.nonBillableTarget));
 
   const rows = useMemo(() => [...engagement.projects, ...engagement.categories], [engagement]);
-  const rowById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
   const eventEntries: TrackedEntry[] = useMemo(
     () =>
@@ -46,6 +49,7 @@ export function WeekScreen({
           description: e.title,
           rowId: e.categoryId || e.projectId,
           hours: e.hours,
+          billable: e.billable,
         })),
     [events],
   );
@@ -56,7 +60,7 @@ export function WeekScreen({
   const overPace = tracked > planned * 0.8;
 
   const nonBillableHours = all.reduce(
-    (s, e) => (rowById.get(e.rowId)?.billable === "billable" ? s : s + e.hours),
+    (s, e) => (entryBillable(engagement, e) === "billable" ? s : s + e.hours),
     0,
   );
   const nonBillablePct = tracked ? Math.round((nonBillableHours / tracked) * 100) : 0;
@@ -89,7 +93,7 @@ export function WeekScreen({
         <div>
           <h1 className="text-[26px] font-semibold tracking-tight text-foreground">This week</h1>
           <p className="mt-0.5 text-[13.5px] text-muted-foreground">
-            <span className="text-teal">{engagement.clientName}</span> · Friday preview of week one
+            <span className="text-teal">{engagement.clientName || "Your client"}</span> · Friday preview of week one
           </p>
         </div>
         <button
@@ -191,7 +195,7 @@ export function WeekScreen({
           <p className="text-[13.5px] text-foreground">
             {pendingEvents} uncategorized {pendingEvents === 1 ? "event" : "events"}
           </p>
-          <Button size="sm" onClick={() => setEventsDrawer(true)}>
+          <Button size="sm" onClick={() => setEventsDrawer(true)} disabled={pendingEvents === 0}>
             Review
           </Button>
         </div>
@@ -229,74 +233,14 @@ export function WeekScreen({
         </p>
       </section>
 
-      {/* Review time drawer: categorized tracked entries */}
-      <Drawer
+      <TimeDrawer
         open={timeDrawer}
         onClose={() => setTimeDrawer(false)}
-        title="Tracked time this week"
-        description={`${all.length} categorized entries · ${tracked.toFixed(1)}h`}
-        footer={
-          <div className="flex justify-end">
-            <Button size="sm" variant="primary" onClick={() => setTimeDrawer(false)}>
-              Done
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-2">
-          {all.map((e) => {
-            const row = rowById.get(e.rowId);
-            const editable = entries.some((x) => x.id === e.id);
-            return (
-              <div key={e.id} className="rounded-[10px] border border-border px-3 py-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    aria-label="Entry description"
-                    value={e.description}
-                    readOnly={!editable}
-                    onChange={(ev) =>
-                      setEntries((list) =>
-                        list.map((x) => (x.id === e.id ? { ...x, description: ev.target.value } : x)),
-                      )
-                    }
-                    className="min-w-[150px] flex-1 bg-transparent text-[13.5px] text-foreground focus:outline-none"
-                  />
-                  <input
-                    aria-label="Hours"
-                    inputMode="decimal"
-                    value={e.hours}
-                    readOnly={!editable}
-                    onChange={(ev) =>
-                      setEntries((list) =>
-                        list.map((x) =>
-                          x.id === e.id
-                            ? { ...x, hours: Number(ev.target.value.replace(/[^\d.]/g, "")) || 0 }
-                            : x,
-                        ),
-                      )
-                    }
-                    className="w-16 rounded-[8px] border border-border px-2 py-1 text-right text-[13px] tabular-nums focus:border-primary focus:outline-none"
-                  />
-                  {editable && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => setEntries((list) => list.filter((x) => x.id !== e.id))}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-                <p className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <span className="h-1.5 w-1.5 rounded-full bg-teal" aria-hidden />
-                  {row?.name ?? "Unassigned"} · {row?.billable === "billable" ? "Billable" : "Non-billable"}
-                </p>
-              </div>
-            );
-          })}
-          {all.length === 0 && <p className="text-[13px] text-muted-foreground">No entries yet.</p>}
-        </div>
-      </Drawer>
+        engagement={engagement}
+        entries={entries}
+        onChange={onEntriesChange}
+        extra={eventEntries}
+      />
 
       <EventsDrawer
         open={eventsDrawer}
@@ -311,7 +255,7 @@ export function WeekScreen({
         rows={rows.map((r) => ({ id: r.id, name: r.name || "Untitled" }))}
         onClose={() => setAddOpen(false)}
         onAdd={(entry) => {
-          setEntries((list) => [...list, { ...entry, id: Math.random().toString(36).slice(2, 8) }]);
+          onEntriesChange([...entries, { ...entry, id: Math.random().toString(36).slice(2, 8) }]);
           setAddOpen(false);
         }}
       />
@@ -381,9 +325,10 @@ function AddMissedTime({
   onAdd: (e: Omit<TrackedEntry, "id">) => void;
 }) {
   const [description, setDescription] = useState("");
-  const [rowId, setRowId] = useState(rows[0]?.id ?? "");
+  const [rowId, setRowId] = useState("");
   const [hours, setHours] = useState("1");
   const [error, setError] = useState<string | null>(null);
+  const value = rowId || rows[0]?.id || "";
 
   return (
     <Modal open={open} onClose={onClose} title="Add missed time" description="Log work you forgot to track this week.">
@@ -392,7 +337,7 @@ function AddMissedTime({
           <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Design review" />
         </Field>
         <Field label="Project or category">
-          <Select value={rowId} onChange={(e) => setRowId(e.target.value)}>
+          <Select value={value} onChange={(e) => setRowId(e.target.value)}>
             {rows.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -417,7 +362,7 @@ function AddMissedTime({
               const h = Number(hours);
               if (!h) return setError("Add the number of hours.");
               setError(null);
-              onAdd({ description: description.trim(), rowId: rowId || rows[0]?.id || "", hours: h });
+              onAdd({ description: description.trim(), rowId: value, hours: h, day: 4, start: 16 });
               setDescription("");
               setHours("1");
             }}

@@ -35,7 +35,9 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const STOP = new Set([
   "the","a","an","my","our","their","his","her","this","that","and","on","in","of","to","up",
   "monthly","weekly","hourly","retainer","fixed","flat","client","clients","project","projects",
+  "includes","include","including","work","working","mostly","most","time","its","split","between",
 ]);
+
 
 function titleCase(s: string) {
   return s
@@ -196,6 +198,12 @@ export type TrackedEntry = {
   description: string;
   rowId: string;
   hours: number;
+  /** Overrides the row's billing status when set. */
+  billable?: Billable | undefined;
+  /** 0 = Monday … 4 = Friday, used by the calendar view. */
+  day?: number | undefined;
+  /** Start hour in 24h decimal, e.g. 9.5 = 09:30. */
+  start?: number | undefined;
 };
 
 export type CalendarEvent = {
@@ -207,10 +215,14 @@ export type CalendarEvent = {
   categoryId: string;
   billable: Billable;
   status: "uncategorized" | "ready";
+  day: number;
+  start: number;
 };
 
 export const DEFAULT_NON_BILLABLE_TARGET = 10;
 export const DEFAULT_WEEKLY_TARGET = 40;
+
+export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"] as const;
 
 const PROJECT_WORK = [
   ["Discovery and scoping", 3.5],
@@ -227,8 +239,15 @@ export function seedEntries(e: Engagement): TrackedEntry[] {
   projects.forEach((p, i) => {
     const a = PROJECT_WORK[(i * 2) % PROJECT_WORK.length]!;
     const b = PROJECT_WORK[(i * 2 + 1) % PROJECT_WORK.length]!;
-    out.push({ id: `${p.id}-a`, description: a[0], rowId: p.id, hours: a[1] });
-    out.push({ id: `${p.id}-b`, description: b[0], rowId: p.id, hours: b[1] });
+    out.push({ id: `${p.id}-a`, description: a[0], rowId: p.id, hours: a[1], day: i % 5, start: 9 });
+    out.push({
+      id: `${p.id}-b`,
+      description: b[0],
+      rowId: p.id,
+      hours: b[1],
+      day: (i + 2) % 5,
+      start: 13,
+    });
   });
   e.categories
     .filter((c) => c.name.trim())
@@ -238,10 +257,13 @@ export function seedEntries(e: Engagement): TrackedEntry[] {
         description: i === 0 ? "Client check-in and revisions" : `${c.name} time`,
         rowId: c.id,
         hours: i === 0 ? 4.2 : 1.5,
+        day: (i + 1) % 5,
+        start: 15,
       });
     });
   return out;
 }
+
 
 export function seedEvents(e: Engagement): CalendarEvent[] {
   const project = e.projects[0]?.id ?? "";
@@ -256,6 +278,8 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      day: 3,
+      start: 14,
     },
     {
       id: "ev2",
@@ -266,7 +290,10 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      day: 4,
+      start: 10,
     },
+
   ];
 }
 
@@ -299,3 +326,58 @@ export function periodEnd(e: Engagement): Date {
 }
 
 export const formatDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/** Neutral, editable engagement used when nothing could be extracted (e.g. screenshot import). */
+export function neutralEngagement(): Engagement {
+  return {
+    clientName: "",
+    clientConfirm: true,
+    billingModel: "retainer",
+    billingConfirm: true,
+    amount: "",
+    currency: "EUR",
+    includedHours: "",
+    period: "month",
+    hoursConfirm: true,
+    startDate: new Date().toISOString().slice(0, 10),
+    nonBillableTarget: DEFAULT_NON_BILLABLE_TARGET,
+    projects: [{ ...newRow(""), suggested: true }],
+    categories: [{ ...newRow("Client communication & admin"), billable: "ask", suggested: true }],
+  };
+}
+
+/** Effective billing status for a tracked entry (entry override, else its row). */
+export function entryBillable(e: Engagement, entry: TrackedEntry): Billable {
+  if (entry.billable) return entry.billable;
+  return [...e.projects, ...e.categories].find((r) => r.id === entry.rowId)?.billable ?? "billable";
+}
+
+export type PlannedBlock = { id: string; label: string; day: number; start: number; hours: number };
+
+/** Deterministic planned blocks derived from the engagement, for the calendar view. */
+export function plannedBlocks(e: Engagement): PlannedBlock[] {
+  const projects = e.projects.filter((p) => p.name.trim());
+  if (!projects.length) return [];
+  const perDay = Math.max(1, Math.round((Number(e.includedHours) || 20) / 10));
+  return [0, 1, 2, 3, 4].map((day) => {
+    const p = projects[day % projects.length]!;
+    return { id: `plan-${day}`, label: `Planned · ${p.name}`, day, start: 11, hours: perDay };
+  });
+}
+
+/** Shared timer state so a running timer survives navigation. */
+export type TimerState = {
+  description: string;
+  projectId: string;
+  categoryId: string;
+  billable: boolean;
+  startedAt: number | null;
+};
+
+export const emptyTimer = (projectId: string): TimerState => ({
+  description: "",
+  projectId,
+  categoryId: "",
+  billable: true,
+  startedAt: null,
+});

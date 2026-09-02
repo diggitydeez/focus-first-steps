@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { SAMPLE_INPUT, extractEngagement, type Engagement } from "@/lib/focus/extract";
+import { SAMPLE_INPUT, extractEngagement, neutralEngagement, type Engagement } from "@/lib/focus/extract";
 import { OnboardingFrame } from "./OnboardingFrame";
 import { Button } from "./ui";
 
@@ -38,15 +38,18 @@ export function SetupScreen({
     const t1 = setTimeout(() => setStepIdx(1), 400);
     const t2 = setTimeout(() => setStepIdx(2), 800);
     const t3 = setTimeout(() => {
-      const source = mode === "upload" ? SAMPLE_INPUT : text;
-      onDone(extractEngagement(source), source);
+      if (mode === "upload") {
+        onDone(neutralEngagement(), fileName ?? "screenshot");
+        return;
+      }
+      onDone(extractEngagement(text), text);
     }, 1200);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [analyzing, mode, text, onDone]);
+  }, [analyzing, mode, text, fileName, onDone]);
 
   function analyze() {
     if (mode === "upload") {
@@ -155,9 +158,15 @@ export function SetupScreen({
             Choose file
           </Button>
           {fileName && (
-            <p className="mt-3 text-[13px] text-foreground">
-              Selected: <span className="font-medium">{fileName}</span>
-            </p>
+            <>
+              <p className="mt-3 text-[13px] text-foreground">
+                Selected: <span className="font-medium">{fileName}</span>
+              </p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Extraction is simulated. Focus will return neutral, editable suggestions for you to confirm — no data is
+                read from the image.
+              </p>
+            </>
           )}
         </div>
       ) : (
