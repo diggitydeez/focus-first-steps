@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BILLING_LABEL, suggestProject, type Billable, type Engagement, type WorkRow } from "@/lib/focus/extract";
 import { Button, Drawer, Field, Input, Select, Tag } from "./ui";
 
@@ -93,7 +93,15 @@ function AddProjectDrawer({
   const [estimate, setEstimate] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
   const ai = mode === "ai";
+
+  useEffect(() => {
+    if (mode) {
+      submitting.current = false;
+      setError(null);
+    }
+  }, [mode]);
 
   function suggest() {
     if (!description.trim()) return setError("Add a short description first.");
@@ -105,7 +113,13 @@ function AddProjectDrawer({
   }
 
   function create() {
+    if (submitting.current) return;
     if (!name.trim()) return setError("Give the project a name.");
+    if (!engagement.clientName.trim()) return setError("Add a client name in review before creating projects.");
+    if (!billable) return setError("Choose a billing status.");
+    if (estimate.trim() && Number.isNaN(Number(estimate.trim())))
+      return setError("Estimate must be a number of hours.");
+    submitting.current = true;
     setError(null);
     onCreate({
       id: Math.random().toString(36).slice(2, 9),
