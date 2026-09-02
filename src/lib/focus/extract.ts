@@ -58,8 +58,8 @@ function cleanName(raw: string) {
 
 function inferClient(text: string): { name: string; confirm: boolean } {
   const patterns = [
-    /\bclient\s+(?:is\s+|called\s+|named\s+)?([A-Za-z0-9&'’.\- ]{3,40})/i,
     /\bwork(?:ing)?\s+with\s+([A-Za-z0-9&'’.\- ]{3,40})/i,
+    /\bclient\s+(?:is\s+|called\s+|named\s+)([A-Za-z0-9&'’.\- ]{3,40})/i,
     /\bwith\s+([A-Z][A-Za-z0-9&'’.\-]*(?:\s+[A-Z][A-Za-z0-9&'’.\-]*){0,3})/,
     /\bfor\s+([A-Z][A-Za-z0-9&'’.\-]*(?:\s+[A-Z][A-Za-z0-9&'’.\-]*){0,3})/,
   ];

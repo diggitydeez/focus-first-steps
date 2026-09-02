@@ -144,6 +144,7 @@ export function ReviewScreen({
 
         <RowSection
           title="Projects"
+          singular="project"
           note="Maximum of 3. Keep it small for the first week."
           rows={engagement.projects}
           onUpdate={(id, patch) => updateRow("projects", id, patch)}
@@ -158,6 +159,7 @@ export function ReviewScreen({
 
         <RowSection
           title="Categories"
+          singular="category"
           note="Reusable across projects."
           rows={engagement.categories}
           onUpdate={(id, patch) => updateRow("categories", id, patch)}
@@ -203,6 +205,7 @@ export function ReviewScreen({
 
 function RowSection({
   title,
+  singular,
   note,
   rows,
   onUpdate,
@@ -211,6 +214,7 @@ function RowSection({
   placeholder,
 }: {
   title: string;
+  singular: string;
   note: string;
   rows: WorkRow[];
   onUpdate: (id: string, patch: Partial<WorkRow>) => void;
@@ -256,7 +260,7 @@ function RowSection({
 
       {onAdd && (
         <Button variant="ghost" size="sm" className="mt-2 -ml-2" onClick={onAdd}>
-          + Add {title.toLowerCase().replace(/s$/, "")}
+          + Add {singular}
         </Button>
       )}
     </section>
