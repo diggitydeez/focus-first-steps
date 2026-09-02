@@ -278,6 +278,8 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      day: 3,
+      start: 14,
     },
     {
       id: "ev2",
@@ -288,7 +290,10 @@ export function seedEvents(e: Engagement): CalendarEvent[] {
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
+      day: 4,
+      start: 10,
     },
+
   ];
 }
 
