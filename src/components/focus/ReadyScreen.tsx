@@ -30,6 +30,7 @@ export function ReadyScreen({
   const [drawer, setDrawer] = useState(false);
   const [, tick] = useState(0);
   const running = timer.startedAt !== null;
+  const pendingCount = events.filter((e) => e.status === "uncategorized").length;
 
   useEffect(() => {
     if (!running) return;
@@ -157,9 +158,14 @@ export function ReadyScreen({
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
             Uncategorized from calendar
           </h2>
-          <Button size="sm" onClick={() => setDrawer(true)}>
-            Review
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-muted-foreground">
+              {pendingCount} uncategorized {pendingCount === 1 ? "event" : "events"}
+            </span>
+            <Button size="sm" disabled={pendingCount === 0} onClick={() => setDrawer(true)}>
+              Review
+            </Button>
+          </div>
         </div>
         <div className="divide-y divide-border rounded-[12px] border border-border">
           {events.map((ev) => (
