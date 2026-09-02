@@ -113,7 +113,13 @@ function AddProjectDrawer({
   }
 
   function create() {
+    if (submitting.current) return;
     if (!name.trim()) return setError("Give the project a name.");
+    if (!engagement.clientName.trim()) return setError("Add a client name in review before creating projects.");
+    if (!billable) return setError("Choose a billing status.");
+    if (estimate.trim() && Number.isNaN(Number(estimate.trim())))
+      return setError("Estimate must be a number of hours.");
+    submitting.current = true;
     setError(null);
     onCreate({
       id: Math.random().toString(36).slice(2, 9),
