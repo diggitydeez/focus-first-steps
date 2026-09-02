@@ -65,7 +65,7 @@ export function EventsDrawer({
               size="sm"
               variant="primary"
               disabled={draft.length === 0}
-              onClick={() => save(draft.map((e) => e.id))}
+              onClick={() => save(draft.map((e) => e.id), true)}
             >
               Save all
             </Button>
