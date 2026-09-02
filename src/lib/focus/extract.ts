@@ -122,7 +122,7 @@ function inferProjects(text: string): WorkRow[] {
   for (const m of markers) {
     const match = text.match(m);
     if (match) {
-      const c = splitCandidates(match[1]).filter((s) => !/^\d|hours?$|retainer|month|week/i.test(s));
+      const c = splitCandidates(match[1] ?? "").filter((s) => !/^\d|hours?$|retainer|month|week/i.test(s));
       if (c.length) {
         found = c;
         break;
