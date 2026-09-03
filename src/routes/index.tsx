@@ -5,6 +5,8 @@ import { IntentScreen } from "@/components/focus/IntentScreen";
 import { SetupScreen } from "@/components/focus/SetupScreen";
 import { ReviewScreen } from "@/components/focus/ReviewScreen";
 import { ReadyScreen } from "@/components/focus/ReadyScreen";
+import { ConnectCalendarScreen } from "@/components/focus/ConnectCalendarScreen";
+
 import { ProjectsScreen } from "@/components/focus/ProjectsScreen";
 import { TasksScreen, type Task } from "@/components/focus/TasksScreen";
 import { CalendarScreen } from "@/components/focus/CalendarScreen";
