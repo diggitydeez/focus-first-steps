@@ -325,39 +325,103 @@ export function seedEntries(e: Engagement): TrackedEntry[] {
 }
 
 
+/**
+ * Simulated calendar import: six entries derived from the confirmed engagement.
+ * Four are plausibly matched to a project, two are left for the user to review.
+ */
 export function seedEvents(e: Engagement): CalendarEvent[] {
-  const project = e.projects[0]?.id ?? "";
+  const named = e.projects.filter((p) => p.name.trim());
+  const project = (i: number) => named[i % Math.max(1, named.length)]?.id ?? e.projects[0]?.id ?? "";
   const category = e.categories[0]?.id ?? "";
-  return [
+  const client = e.clientName.trim() || "Client";
+
+  const matched: CalendarEvent[] = [
     {
       id: "ev1",
-      title: `${e.clientName} weekly check-in`,
-      time: "Thu, 14:00–14:45",
+      title: `${client} weekly check-in`,
+      time: "Mon, 09:30–10:15",
       hours: 0.75,
-      projectId: project,
+      projectId: project(0),
+      categoryId: category,
+      billable: "ask",
+      status: "tracked",
+      past: true,
+      day: 0,
+      start: 9,
+    },
+    {
+      id: "ev2",
+      title: "Working session",
+      time: "Tue, 11:00–12:30",
+      hours: 1.5,
+      projectId: project(1),
+      categoryId: "",
+      billable: "billable",
+      status: "tracked",
+      past: true,
+      day: 1,
+      start: 11,
+    },
+    {
+      id: "ev3",
+      title: "Progress review",
+      time: "Thu, 15:00–16:00",
+      hours: 1,
+      projectId: project(0),
+      categoryId: "",
+      billable: "billable",
+      status: "planned",
+      past: false,
+      day: 3,
+      start: 15,
+    },
+    {
+      id: "ev4",
+      title: `${client} planning call`,
+      time: "Fri, 09:00–09:45",
+      hours: 0.75,
+      projectId: project(1),
+      categoryId: category,
+      billable: "ask",
+      status: "planned",
+      past: false,
+      day: 4,
+      start: 9,
+    },
+  ];
+
+  const needsReview: CalendarEvent[] = [
+    {
+      id: "ev5",
+      title: "Feedback and revisions",
+      time: "Wed, 14:00–14:45",
+      hours: 0.75,
+      projectId: project(0),
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
       past: true,
-      day: 3,
+      day: 2,
       start: 14,
     },
     {
-      id: "ev2",
-      title: "Feedback and revisions call",
-      time: "Fri, 10:00–11:00",
+      id: "ev6",
+      title: "Scheduled work block",
+      time: "Fri, 13:00–14:00",
       hours: 1,
-      projectId: project,
+      projectId: project(0),
       categoryId: category,
       billable: "ask",
       status: "uncategorized",
       past: false,
       day: 4,
-      start: 10,
+      start: 13,
     },
-
   ];
+
+  return [...matched, ...needsReview];
 }
+
 
 /** Status an event takes once categorized: past events become tracked, future become planned. */
 export const categorizedStatus = (e: CalendarEvent): CalendarEvent["status"] =>
