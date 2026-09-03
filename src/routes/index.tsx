@@ -82,11 +82,61 @@ function Index() {
   const [calEventFocus, setCalEventFocus] = useState<string | null>(null);
   const [calTime, setCalTime] = useState<string | null>(null);
   const [nonBillableTarget, setNonBillableTarget] = useState<number | null>(null);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(NB_TARGET_KEY);
     if (raw !== null && raw !== "" && !Number.isNaN(Number(raw))) setNonBillableTarget(Number(raw));
+
+    // Restore a previously started workspace session (engagement + imported events).
+    try {
+      const saved = window.localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const s = JSON.parse(saved) as {
+          engagement: Engagement;
+          events: CalendarEvent[];
+          entries: TrackedEntry[];
+          tasks?: Task[];
+          created?: boolean;
+          weeklyTarget?: number;
+          calendarConnected?: boolean;
+        };
+        if (s && s.engagement) {
+          setEngagement(s.engagement);
+          setEvents(s.events ?? []);
+          setEntries(s.entries ?? []);
+          setTasks(s.tasks ?? []);
+          setCreated(Boolean(s.created));
+          setWeeklyTarget(s.weeklyTarget ?? DEFAULT_WEEKLY_TARGET);
+          setCalendarConnected(Boolean(s.calendarConnected));
+          setTimer(emptyTimer(s.engagement.projects[0]?.id ?? ""));
+          setScreen("ready");
+        }
+      }
+    } catch {
+      /* ignore malformed session */
+    }
+    setRestored(true);
   }, []);
+
+  // Persist the workspace session so navigation and refresh keep imported events.
+  useEffect(() => {
+    if (!restored) return;
+    if (!engagement || screen === "intent" || screen === "setup" || screen === "review") return;
+    window.localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        engagement,
+        events: events ?? [],
+        entries: entries ?? [],
+        tasks,
+        created,
+        weeklyTarget,
+        calendarConnected,
+      }),
+    );
+  }, [restored, screen, engagement, events, entries, tasks, created, weeklyTarget, calendarConnected]);
 
   const saveNonBillableTarget = useCallback((value: number) => {
     setNonBillableTarget(value);
@@ -99,17 +149,30 @@ function Index() {
     setScreen("review");
   }, []);
 
-  function start(e: Engagement, wasCreated: boolean) {
+  /** Prepare the workspace, then offer the calendar connection step. */
+  function start(e: Engagement, wasCreated: boolean, goTo: Screen = "connect") {
     setEngagement(e);
-    setEvents(seedEvents(e));
     setEntries(seedEntries(e));
+    setEvents((prev) => (calendarConnected ? (prev ?? seedEvents(e)) : []));
     setTimer(emptyTimer(e.projects[0]?.id ?? ""));
     setCreated(wasCreated);
-    setScreen("ready");
+    setScreen(goTo);
   }
 
   function skip() {
-    start(extractEngagement(SAMPLE_INPUT), false);
+    start(extractEngagement(SAMPLE_INPUT), false, "ready");
+  }
+
+  /** Simulated import — replaces (never duplicates) the imported set. */
+  function connectCalendar() {
+    setCalendarConnected(true);
+    setEvents(seedEvents(active));
+  }
+
+  function skipCalendar() {
+    setCalendarConnected(false);
+    setEvents([]);
+    setScreen("ready");
   }
 
   function restart() {
@@ -121,9 +184,12 @@ function Index() {
     setCreated(false);
     setWeeklyTarget(DEFAULT_WEEKLY_TARGET);
     setNonBillableTarget(null);
+    setCalendarConnected(false);
     window.localStorage.removeItem(NB_TARGET_KEY);
+    window.localStorage.removeItem(SESSION_KEY);
     setScreen("intent");
   }
+
 
   const active = useMemo(() => {
     const base = engagement ?? extractEngagement(SAMPLE_INPUT);
