@@ -65,8 +65,18 @@ export function WeekScreen({
     (s, e) => (entryBillable(engagement, e) === "billable" ? s : s + e.hours),
     0,
   );
-  const nonBillablePct = tracked ? Math.round((nonBillableHours / tracked) * 100) : 0;
-  const overTarget = nonBillablePct > engagement.nonBillableTarget;
+  const targetPercent = Number(engagement.nonBillableTarget) || 0;
+  const actualNonBillablePercent = tracked ? (nonBillableHours / tracked) * 100 : 0;
+  const nonBillablePct = fmtPct(actualNonBillablePercent);
+  const variance = Math.round((actualNonBillablePercent - targetPercent) * 10) / 10;
+  const overTarget = variance > 0;
+  const varianceText =
+    variance === 0
+      ? `Non-billable time is on your ${fmtPct(targetPercent)}% target.`
+      : `Non-billable time is ${fmtPct(Math.abs(variance))} percentage points ${
+          variance > 0 ? "above" : "below"
+        } your ${fmtPct(targetPercent)}% target.`;
+
 
   const byRow = useMemo(
     () =>
