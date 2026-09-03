@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/focus/AppShell";
 import { IntentScreen } from "@/components/focus/IntentScreen";
 import { SetupScreen } from "@/components/focus/SetupScreen";
@@ -45,6 +45,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const NB_TARGET_KEY = "focus.nonBillableTarget";
+
 type Screen = "intent" | "setup" | "review" | "ready" | "week" | "projects" | "tasks" | "calendar";
 
 function manualEngagement(): Engagement {
@@ -77,6 +79,18 @@ function Index() {
   const [calEvents, setCalEvents] = useState(false);
   const [calEventFocus, setCalEventFocus] = useState<string | null>(null);
   const [calTime, setCalTime] = useState<string | null>(null);
+  const [nonBillableTarget, setNonBillableTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(NB_TARGET_KEY);
+    if (raw !== null && raw !== "" && !Number.isNaN(Number(raw))) setNonBillableTarget(Number(raw));
+  }, []);
+
+  const saveNonBillableTarget = useCallback((value: number) => {
+    setNonBillableTarget(value);
+    window.localStorage.setItem(NB_TARGET_KEY, String(value));
+    setEngagement((prev) => (prev ? { ...prev, nonBillableTarget: value } : prev));
+  }, []);
 
   const handleExtracted = useCallback((e: Engagement) => {
     setEngagement(e);
@@ -104,10 +118,15 @@ function Index() {
     setTimer(emptyTimer(""));
     setCreated(false);
     setWeeklyTarget(DEFAULT_WEEKLY_TARGET);
+    setNonBillableTarget(null);
+    window.localStorage.removeItem(NB_TARGET_KEY);
     setScreen("intent");
   }
 
-  const active = useMemo(() => engagement ?? extractEngagement(SAMPLE_INPUT), [engagement]);
+  const active = useMemo(() => {
+    const base = engagement ?? extractEngagement(SAMPLE_INPUT);
+    return nonBillableTarget === null ? base : { ...base, nonBillableTarget };
+  }, [engagement, nonBillableTarget]);
   const activeEvents = events ?? [];
   const activeEntries = entries ?? [];
 
@@ -215,7 +234,7 @@ function Index() {
           onEntriesChange={setEntries}
           events={activeEvents}
           onSaveEvents={saveEvents}
-          onNonBillableTarget={(value) => setEngagement({ ...active, nonBillableTarget: value })}
+          onNonBillableTarget={saveNonBillableTarget}
           onRestart={restart}
         />
       ) : screen === "projects" ? (
