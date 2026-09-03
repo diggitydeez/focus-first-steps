@@ -11,6 +11,13 @@ import { EventsDrawer } from "./EventsDrawer";
 import { TimeDrawer } from "./TimeDrawer";
 import { Button, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
 
+const fmtPct = (n: number) => {
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+};
+
+
+
 export function WeekScreen({
   engagement,
   weeklyTarget,
