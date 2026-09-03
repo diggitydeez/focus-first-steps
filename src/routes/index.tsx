@@ -255,6 +255,19 @@ function Index() {
       />
     );
 
+  if (screen === "connect")
+    return (
+      <ConnectCalendarScreen
+        alreadyConnected={calendarConnected}
+        onBack={() => setScreen(created ? "review" : "intent")}
+        onConnect={connectCalendar}
+        onSkip={skipCalendar}
+        onContinue={() => setScreen("ready")}
+      />
+    );
+
+
+
   const navKey =
     screen === "week"
       ? "reports"
