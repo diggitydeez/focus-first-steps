@@ -488,13 +488,25 @@ export function Drawer({
   width?: string | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input, select, textarea, button")?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
+
+  // Autofocus the first editable control once per open, never the close button.
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      ref.current?.querySelector<HTMLElement>("input, textarea, [role='combobox']")?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
 
   if (!open) return null;
   return (
