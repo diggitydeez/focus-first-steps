@@ -193,11 +193,12 @@ export function WeekScreen({
           {nonBillableHours.toFixed(1)}h · {nonBillablePct}% of tracked time
         </p>
         <p className="mt-1 text-[13.5px] text-muted-foreground">
-          Your target is {engagement.nonBillableTarget}%.{" "}
+          {varianceText}{" "}
           {overTarget
             ? "Client communication and revisions account for most of the difference."
             : "Communication and revisions are inside the share you planned for."}
         </p>
+
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setTimeDrawer(true)}>
             Review entries
