@@ -46,7 +46,7 @@ export function ConnectCalendarScreen({
       onSkip={onSkip}
       width="max-w-[620px]"
     >
-      <div className="rounded-[12px] border border-border bg-surface px-5 py-5">
+      <div className="rounded-[12px] border border-border bg-nav px-5 py-5">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-border bg-background text-primary">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
