@@ -11,6 +11,13 @@ import { EventsDrawer } from "./EventsDrawer";
 import { TimeDrawer } from "./TimeDrawer";
 import { Button, Field, Input, Modal, Select, Tag, Tooltip } from "./ui";
 
+const fmtPct = (n: number) => {
+  const r = Math.round(n * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+};
+
+
+
 export function WeekScreen({
   engagement,
   weeklyTarget,
@@ -65,8 +72,18 @@ export function WeekScreen({
     (s, e) => (entryBillable(engagement, e) === "billable" ? s : s + e.hours),
     0,
   );
-  const nonBillablePct = tracked ? Math.round((nonBillableHours / tracked) * 100) : 0;
-  const overTarget = nonBillablePct > engagement.nonBillableTarget;
+  const targetPercent = Number(engagement.nonBillableTarget) || 0;
+  const actualNonBillablePercent = tracked ? (nonBillableHours / tracked) * 100 : 0;
+  const nonBillablePct = fmtPct(actualNonBillablePercent);
+  const variance = Math.round((actualNonBillablePercent - targetPercent) * 10) / 10;
+  const overTarget = variance > 0;
+  const varianceText =
+    variance === 0
+      ? `Non-billable time is on your ${fmtPct(targetPercent)}% target.`
+      : `Non-billable time is ${fmtPct(Math.abs(variance))} percentage points ${
+          variance > 0 ? "above" : "below"
+        } your ${fmtPct(targetPercent)}% target.`;
+
 
   const byRow = useMemo(
     () =>
@@ -183,11 +200,12 @@ export function WeekScreen({
           {nonBillableHours.toFixed(1)}h · {nonBillablePct}% of tracked time
         </p>
         <p className="mt-1 text-[13.5px] text-muted-foreground">
-          Your target is {engagement.nonBillableTarget}%.{" "}
+          {varianceText}{" "}
           {overTarget
             ? "Client communication and revisions account for most of the difference."
             : "Communication and revisions are inside the share you planned for."}
         </p>
+
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setTimeDrawer(true)}>
             Review entries
