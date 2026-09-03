@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { Billable, Engagement, TrackedEntry } from "@/lib/focus/extract";
 import { entryBillable } from "@/lib/focus/extract";
 import { Button, Drawer, Field, Input, Select } from "./ui";
@@ -88,12 +89,9 @@ export function TimeDrawer({
             </div>
             <div className="mt-3 flex items-end justify-between gap-3">
               <Field label="Duration (hours)" className="w-[140px]">
-                <Input
-                  inputMode="decimal"
-                  value={e.hours}
-                  onChange={(ev) => patch(e.id, { hours: Number(ev.target.value.replace(/[^\d.]/g, "")) || 0 })}
-                />
+                <HoursInput value={e.hours} onCommit={(h) => patch(e.id, { hours: h })} />
               </Field>
+
               <Button variant="danger" size="sm" onClick={() => onChange(entries.filter((x) => x.id !== e.id))}>
                 Remove
               </Button>
@@ -115,5 +113,36 @@ export function TimeDrawer({
         )}
       </div>
     </Drawer>
+  );
+}
+
+/** Hours field that keeps raw keystrokes local so typing "12.5" is uninterrupted. */
+function HoursInput({ value, onCommit }: { value: number; onCommit: (hours: number) => void }) {
+  const [text, setText] = useState(String(value));
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setText(String(value));
+  }, [value]);
+
+  return (
+    <Input
+      inputMode="decimal"
+      value={text}
+      onFocus={() => (focused.current = true)}
+      onChange={(ev) => {
+        const raw = ev.target.value.replace(/[^\d.]/g, "");
+        setText(raw);
+        const n = Number(raw);
+        if (raw !== "" && !Number.isNaN(n)) onCommit(n);
+      }}
+      onBlur={() => {
+        focused.current = false;
+        const n = Number(text);
+        const safe = text === "" || Number.isNaN(n) ? 0 : n;
+        setText(String(safe));
+        onCommit(safe);
+      }}
+    />
   );
 }
