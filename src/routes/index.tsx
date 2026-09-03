@@ -368,7 +368,8 @@ function Index() {
           onStop={stopTimer}
           onSaveEvents={saveEvents}
           onPreviewFriday={() => setScreen("week")}
-          onBack={() => setScreen(created ? "review" : "intent")}
+          onBack={() => setScreen(created ? "connect" : "intent")}
+
         />
       )}
     </AppShell>
