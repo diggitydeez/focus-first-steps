@@ -46,8 +46,10 @@ export const Route = createFileRoute("/")({
 });
 
 const NB_TARGET_KEY = "focus.nonBillableTarget";
+const SESSION_KEY = "focus.session";
 
-type Screen = "intent" | "setup" | "review" | "ready" | "week" | "projects" | "tasks" | "calendar";
+type Screen = "intent" | "setup" | "review" | "connect" | "ready" | "week" | "projects" | "tasks" | "calendar";
+
 
 function manualEngagement(): Engagement {
   return {
